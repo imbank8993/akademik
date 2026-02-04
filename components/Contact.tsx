@@ -2,22 +2,22 @@ import Reveal from "./Reveal";
 
 export default function Contact() {
     return (
-        <section id="contact" className="section cta">
+        <section id="apps" className="section cta">
             <div className="container">
                 <Reveal>
                     <div className="ctaBox">
                         <div>
-                            <h2 className="h2">Siap Launch Landing Page-mu?</h2>
+                            <h2 className="h2">Akses Aplikasi Akademik</h2>
                             <p className="muted">
-                                Tinggal ganti konten, logo, dan warna brand. Bisa juga saya bantu tambah section.
+                                Masuk ke sistem informasi akademik terpadu MAN Insan Cendekia Gowa melalui portal ACCA.
                             </p>
                         </div>
                         <div className="ctaActions">
-                            <a className="btn primary" href="mailto:hello@yourdomain.com">
-                                Email Saya
+                            <a className="btn primary" href="https://acca.icgowa.sch.id">
+                                Buka ACCA
                             </a>
                             <a className="btn ghost" href="#home">
-                                Kembali ke Atas
+                                Beranda
                             </a>
                         </div>
                     </div>

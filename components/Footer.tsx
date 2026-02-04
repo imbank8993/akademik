@@ -3,8 +3,8 @@ export default function Footer() {
         <footer className="footer">
             <div className="container footerInner">
                 <div className="brandMini">
-                    <span className="logoMark" aria-hidden="true" />
-                    <span>MarineLanding</span>
+                    <img src="/logo-a.png" alt="Logo" className="logoImgSmall" />
+                    <span>Akademik IC Gowa</span>
                 </div>
                 <div className="muted">© {new Date().getFullYear()} • All rights reserved</div>
             </div>

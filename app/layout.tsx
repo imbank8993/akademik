@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Marine Landing | Akademik App",
-  description: "Landing page profesional bernuansa biru marine untuk solusi akademik",
+  title: "Akademik IC Gowa",
+  description: "Selamat Datang di Laman Akademik MAN Insan Cendekia Gowa",
 };
 
 export default function RootLayout({

@@ -88,7 +88,7 @@ ul {
 }
 
 .h2 {
-  font-size: clamp(28px, 3vw, 40px);
+  font-size: clamp(24px, 2.5vw, 32px);
   margin: 0;
   letter-spacing: -0.02em;
   font-weight: 700;
@@ -96,7 +96,7 @@ ul {
 
 .h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 17px;
   letter-spacing: -0.01em;
   font-weight: 600;
 }
@@ -205,7 +205,7 @@ ul {
   right: 0;
   z-index: 100;
   transition: .3s;
-  padding: 12px 0;
+  padding: 8px 0;
 }
 
 .header.scrolled {
@@ -213,7 +213,7 @@ ul {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
-  padding: 12px 0;
+  padding: 8px 0;
   box-shadow: var(--shadow-sm);
 }
 
@@ -231,20 +231,51 @@ ul {
   font-size: 19px;
 }
 
-.logoMark {
-  width: 36px;
-  height: 36px;
-  background: var(--primary);
-  border-radius: 8px;
-  position: relative;
+.logoImg {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
 }
 
-.logoMark::after {
-  content: '';
-  position: absolute;
-  inset: 8px;
-  border: 2px solid white;
-  border-radius: 3px;
+.logoImgSmall {
+  height: 22px;
+  width: auto;
+  object-fit: contain;
+}
+
+.accaLogoLink {
+  display: flex;
+  align-items: center;
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+  transition: transform 0.2s;
+}
+
+.accaLogoLink:hover {
+  transform: translateY(-1px);
+}
+
+.accaLogoImg {
+  height: 18px;
+  width: auto;
+  object-fit: contain;
+}
+
+.accaLogoLinkMobile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
+  background: transparent;
+  color: var(--primary);
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+}
+
+.accaLogoImgMobile {
+  height: 22px;
+  width: auto;
 }
 
 .navDesktop {
@@ -702,4 +733,120 @@ ul {
   .burger {
     display: flex;
   }
+}
+
+/* ---------- Information Grid & Folders ---------- */
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 32px;
+  margin-top: 20px;
+}
+
+.folderCard {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 300px;
+}
+
+.folderHeader {
+  padding: 24px;
+  background: var(--primary-light);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.folderIcon {
+  color: var(--primary);
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fileList {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.fileItem {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--bg-alt);
+  transition: all 0.2s;
+  text-decoration: none;
+  color: var(--text);
+  gap: 12px;
+}
+
+.fileItem:hover {
+  background: white;
+  box-shadow: var(--shadow-sm);
+  transform: translateX(4px);
+  color: var(--primary);
+}
+
+.fileIcon {
+  margin-right: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.fileTitle {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.fileAction {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+
+@media (max-width: 768px) {
+  .fileTitle {
+    font-size: 12px;
+  }
+
+  .fileAction {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}
+
+.fileItem:hover .fileAction {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.infoPlaceholder {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-style: italic;
 }

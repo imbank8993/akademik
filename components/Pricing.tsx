@@ -13,12 +13,12 @@ const plans = [
 
 export default function Pricing() {
     return (
-        <section id="pricing" className="section">
+        <section id="reports" className="section">
             <div className="container">
                 <Reveal>
                     <div className="sectionHead">
-                        <h2 className="h2">Paket</h2>
-                        <p className="muted">Contoh pricing yang bisa kamu sesuaikan.</p>
+                        <h2 className="h2">Laporan & Statistik</h2>
+                        <p className="muted">Pantau perkembangan akademik siswa secara transparan dan akurat.</p>
                     </div>
                 </Reveal>
 

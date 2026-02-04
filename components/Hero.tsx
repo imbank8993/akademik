@@ -11,14 +11,13 @@ export default function Hero() {
 
                     <Reveal delay={80}>
                         <h1 className="h1">
-                            Landing Page Profesional <span className="accent">Nuansa Denim Blue</span>
+                            Selamat Datang di Laman Akademik <span className="accent">MAN Insan Cendekia Gowa</span>
                         </h1>
                     </Reveal>
 
                     <Reveal delay={160}>
                         <p className="lead">
-                            Template Next.js yang clean, responsif, dan siap dipakai untuk SaaS, agency,
-                            produk digital, atau company profile.
+                            Menampilkan berbagai layanan, program, dan informasi terkini seputar Akademik MAN Insan Cendekia Gowa.
                         </p>
                     </Reveal>
 

@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 
 const navItems = [
   { label: "Home", href: "#home" },
-  { label: "Fitur", href: "#features" },
+  { label: "Informasi", href: "#info" },
+  { label: "Laporan", href: "#reports" },
+  { label: "Aplikasi", href: "#apps" },
   { label: "Testimoni", href: "#testimonials" },
-  { label: "Harga", href: "#pricing" },
-  { label: "Kontak", href: "#contact" },
 ];
 
 export default function Header() {
@@ -33,8 +33,8 @@ export default function Header() {
     <header className={`header ${scrolled ? "scrolled" : ""}`}>
       <div className="container headerInner">
         <a className="brand" href="#home" onClick={() => setOpen(false)}>
-          <span className="logoMark" aria-hidden="true" />
-          <span className="brandText">MarineLanding</span>
+          <img src="/logo-a.png" alt="Logo" className="logoImg" />
+          <span className="brandText">Akademik MAN IC Gowa</span>
         </a>
 
         <nav className="navDesktop" aria-label="Primary">
@@ -43,8 +43,8 @@ export default function Header() {
               {item.label}
             </a>
           ))}
-          <a className="btn small primary" href="#contact">
-            Demo
+          <a className="accaLogoLink" href="https://acca.icgowa.sch.id" target="_blank" rel="noopener noreferrer">
+            <img src="/logo-acca.png" alt="ACCA Logo" className="accaLogoImg" title="Ke Laman ACCA" />
           </a>
         </nav>
 
@@ -66,8 +66,8 @@ export default function Header() {
       <div className={`mobileMenu ${open ? "open" : ""}`} aria-hidden={!open}>
         <div className="mobileMenuTop">
           <div className="brandMini">
-            <span className="logoMark" aria-hidden="true" />
-            <span>MarineLanding</span>
+            <img src="/logo-a.png" alt="Logo" className="logoImgSmall" />
+            <span>Akademik IC Gowa</span>
           </div>
           <button className="btn small ghost" onClick={() => setOpen(false)}>
             Tutup
@@ -85,8 +85,8 @@ export default function Header() {
               {item.label}
             </a>
           ))}
-          <a className="btn primary" href="#contact" onClick={() => setOpen(false)}>
-            Hubungi
+          <a className="accaLogoLinkMobile" href="https://acca.icgowa.sch.id" target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
+            <img src="/logo-acca.png" alt="ACCA Logo" className="accaLogoImgMobile" />
           </a>
         </div>
       </div>
