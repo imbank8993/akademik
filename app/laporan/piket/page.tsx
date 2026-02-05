@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import '../laporan.css'; // We'll keep general styles but override for specific UI
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://acca.icgowa.sch.id';
 
 // List kehadiran hardcoded or fetched? GAS fetched from sheet. We'll use standard.
 const KEHADIRAN_OPTIONS = [

@@ -21,7 +21,7 @@ export default function Informasi() {
     useEffect(() => {
         const fetchDocs = async () => {
             try {
-                const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+                const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://acca.icgowa.sch.id";
                 const API_URL = `${baseUrl}/api/informasi-akademik`;
 
                 console.log("Mencoba mengambil data dari:", API_URL);

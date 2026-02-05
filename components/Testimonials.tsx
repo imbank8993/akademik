@@ -15,7 +15,7 @@ export default function Testimonials() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api/testimonials";
+    const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://acca.icgowa.sch.id") + "/api/testimonials";
 
     useEffect(() => {
         fetchTestimonials();
