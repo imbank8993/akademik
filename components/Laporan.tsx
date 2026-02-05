@@ -21,6 +21,14 @@ const forms = [
         highlight: true,
         locked: false
     },
+    {
+        title: "Unggah Dokumen",
+        description: "Layanan mandiri unggah berkas administrasi dan akademik untuk Siswa dan Guru.",
+        icon: "bi-cloud-arrow-up-fill",
+        href: "/upload",
+        active: true,
+        locked: false
+    },
 ];
 
 export default function Laporan() {

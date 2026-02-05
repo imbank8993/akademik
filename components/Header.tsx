@@ -10,11 +10,13 @@ const navItems = [
     href: "/#laporan",
     dropdown: [
       { label: "Jurnal Pembelajaran", href: "/laporan/jurnal-pembelajaran" },
-      { label: "Laporan Piket", href: "/laporan/piket" }
+      { label: "Laporan Piket", href: "/laporan/piket" },
+      { label: "Unggah Dokumen", href: "/upload" }
     ]
   },
   { label: "Aplikasi", href: "/#apps" },
 ];
+
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -216,6 +218,25 @@ export default function Header() {
 
         .mobileSubLink:hover {
           color: var(--primary);
+        }
+
+        .mobileMenuTop .btn.small {
+          padding: 6px 12px;
+          font-size: 12px;
+          border-radius: 8px;
+          height: auto;
+          line-height: 1;
+        }
+
+        .mobileMenuTop .brandMini {
+          white-space: normal;
+          line-height: 1.2;
+          max-width: 160px;
+          font-size: 14px;
+        }
+
+        .mobileMenuTop .logoImgSmall {
+          flex-shrink: 0;
         }
       `}</style>
     </header>
