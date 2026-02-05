@@ -5,7 +5,6 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import Swal from 'sweetalert2'
 import AsyncSelect from 'react-select/async'
-import { supabase } from '@/lib/supabase'
 
 export default function UploadPage() {
     const [categories, setCategories] = useState<any[]>([])
@@ -20,6 +19,7 @@ export default function UploadPage() {
     const [file, setFile] = useState<File | null>(null)
 
     const PHP_HANDLER_URL = process.env.NEXT_PUBLIC_PHP_HANDLER_URL || 'https://icgowa.sch.id/akademik.icgowa.sch.id/upload_handler.php'
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://acca.icgowa.sch.id'
 
     useEffect(() => {
         setMounted(true)
@@ -32,12 +32,8 @@ export default function UploadPage() {
 
     const fetchCategories = async () => {
         try {
-            const { data, error } = await supabase
-                .from('upload_categories')
-                .select('*')
-                .order('name')
-
-            if (error) throw error
+            const res = await fetch(`${API_URL}/api/upload-categories`)
+            const data = await res.json()
             if (data) setCategories(data)
         } catch (err: any) {
             console.error('Gagal mengambil kategori:', err.message)
@@ -50,49 +46,9 @@ export default function UploadPage() {
         if (!inputValue) return []
 
         try {
-            if (role === 'guru') {
-                const { data } = await supabase
-                    .from('master_guru')
-                    .select('nip, nama_lengkap')
-                    .eq('aktif', true)
-                    .ilike('nama_lengkap', `%${inputValue}%`)
-                    .limit(20)
-
-                return (data || []).map((g: any) => ({
-                    label: g.nama_lengkap,
-                    value: g.nama_lengkap,
-                    id: g.nip
-                }))
-            } else {
-                // Mencoba mencari di siswa_kelas (kolom 'nama')
-                let { data, error } = await supabase
-                    .from('siswa_kelas')
-                    .select('nisn, nama, kelas')
-                    .eq('aktif', true)
-                    .ilike('nama', `%${inputValue}%`)
-                    .limit(20)
-
-                if (error || !data || data.length === 0) {
-                    const { data: mData } = await supabase
-                        .from('master_siswa')
-                        .select('nisn, nama_lengkap')
-                        .eq('aktif', true)
-                        .ilike('nama_lengkap', `%${inputValue}%`)
-                        .limit(20)
-
-                    return (mData || []).map((s: any) => ({
-                        label: s.nama_lengkap,
-                        value: s.nama_lengkap,
-                        id: s.nisn
-                    }))
-                }
-
-                return data.map((s: any) => ({
-                    label: `${s.nama} (${s.kelas})`,
-                    value: s.nama,
-                    id: s.nisn
-                }))
-            }
+            const res = await fetch(`${API_URL}/api/uploader-search?type=${role}&q=${inputValue}`)
+            const data = await res.json()
+            return data || []
         } catch (err) {
             console.error('Error mencari pengunggah:', err)
             return []
@@ -114,24 +70,25 @@ export default function UploadPage() {
         setLoading(true)
 
         try {
-            const formData = new FormData()
+            const formPayload = new FormData()
             const category = categories.find(c => c.id === categoryId)
             const categoryName = category?.name || 'General'
 
-            formData.append('category', categoryName)
-            formData.append('file', file)
+            formPayload.append('category', categoryName)
+            formPayload.append('file', file)
 
             const uploadRes = await fetch(PHP_HANDLER_URL, {
                 method: 'POST',
-                body: formData,
+                body: formPayload,
             })
 
             const uploadData = await uploadRes.json()
 
             if (uploadData.status === 'success') {
-                const { error: metaError } = await supabase
-                    .from('uploaded_documents')
-                    .insert([{
+                const metaRes = await fetch(`${API_URL}/api/uploaded-documents`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
                         uploader_name: selectedUploader.value,
                         uploader_role: role,
                         category_id: categoryId,
@@ -139,9 +96,10 @@ export default function UploadPage() {
                         file_name: uploadData.file_name,
                         file_url: uploadData.file_url,
                         file_path: uploadData.file_path,
-                    }])
+                    })
+                })
 
-                if (metaError) throw metaError
+                if (!metaRes.ok) throw new Error('Gagal menyimpan metadata ke database akademik.')
 
                 Swal.fire({
                     title: 'Unggah Berhasil',
