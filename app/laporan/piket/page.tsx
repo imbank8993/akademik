@@ -59,10 +59,18 @@ export default function LaporanPiketPage() {
                 }
 
                 // Fetch Dropdown Status Kehadiran
-                const resDrop = await fetch(`${API_URL}/api/master/dropdown`);
-                const dataDrop = await resDrop.json();
-                if (dataDrop.ok) {
-                    setKehadiranOptions(dataDrop.data.kategori_kehadiran || []);
+                try {
+                    const resDrop = await fetch(`${API_URL}/api/master/dropdown`);
+                    if (resDrop.ok) {
+                        const dataDrop = await resDrop.json();
+                        setKehadiranOptions(dataDrop.data.kategori_kehadiran || []);
+                    } else {
+                        // Fallback jika API return error (404/500)
+                        setKehadiranOptions(['Hadir', 'Sakit', 'Izin', 'Tanpa Keterangan', 'Tugas', 'Kelas Kosong'].map(k => ({ value: k, label: k })));
+                    }
+                } catch (err) {
+                    console.warn("Dropdown API not ready or blocked, using fallback", err);
+                    setKehadiranOptions(['Hadir', 'Sakit', 'Izin', 'Tanpa Keterangan', 'Tugas', 'Kelas Kosong'].map(k => ({ value: k, label: k })));
                 }
             } catch (err) {
                 console.error("Master data fetch error", err);
