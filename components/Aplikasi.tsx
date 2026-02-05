@@ -6,17 +6,17 @@ export default function Aplikasi() {
     const apps = [
         {
             id: 'acca',
-            name: 'ACCA Portal',
-            desc: 'Sistem Informasi Akademik Terpadu untuk manajemen data nilai, absensi, dan administrasi sekolah.',
+            name: 'ACCA',
+            desc: 'Academic Center & Access MAN Insan Cendekia Gowa.',
             logo: '/logo-acca.png',
             url: 'https://acca.icgowa.sch.id',
             btnText: 'Buka ACCA'
         },
         {
             id: 'rdm',
-            name: 'RDM Madrasah',
-            desc: 'Raport Digital Madrasah untuk penginputan nilai dan pengelolaan hasil belajar siswa secara digital.',
-            logo: '/logo-rdm-madrasah-png.png',
+            name: 'RDM',
+            desc: 'Raport Digital Madrasah.',
+            logo: '/logo-rdm.png',
             url: 'https://rdm.icgowa.sch.id', // Assuming logical URL, user can fix if different
             btnText: 'Buka RDM'
         }
