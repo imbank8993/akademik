@@ -6,19 +6,17 @@ export default function Aplikasi() {
     const apps = [
         {
             id: 'acca',
-            name: 'ACCA',
             desc: 'Academic Center & Access MAN Insan Cendekia Gowa.',
             logo: '/logo-acca.png',
             url: 'https://acca.icgowa.sch.id',
-            btnText: 'Buka ACCA'
+            btnText: 'Buka ACCA '
         },
         {
             id: 'rdm',
-            name: 'RDM',
             desc: 'Raport Digital Madrasah.',
             logo: '/logo-rdm.png',
             url: 'https://rdm.icgowa.sch.id', // Assuming logical URL, user can fix if different
-            btnText: 'Buka RDM'
+            btnText: 'Buka RDM '
         }
     ];
 
