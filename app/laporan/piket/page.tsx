@@ -207,10 +207,6 @@ export default function LaporanPiketPage() {
     return (
         <>
             <Header />
-            {/* Animated Background Blobs */}
-            <div className="blob blob1"></div>
-            <div className="blob blob2"></div>
-
             <div className="laporan-page">
                 <div className="laporan-banner">
                     <div className="header-content">
@@ -529,10 +525,6 @@ export default function LaporanPiketPage() {
                     `}</style>
                 </div>
             </div>
-
-            {/* Animated Background Blobs */}
-            <div className="blob blob1"></div>
-            <div className="blob blob2"></div>
 
             <Footer />
         </>
