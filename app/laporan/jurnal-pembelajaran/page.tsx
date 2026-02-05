@@ -265,7 +265,7 @@ export default function JurnalPembelajaranPage() {
                                         instanceId="select-guru-jurnal"
                                         options={guruOptions}
                                         placeholder={loadingMaster ? "Memuat..." : "Pilih guru..."}
-                                        value={guruOptions.find(g => g.value === formData.nama_guru)}
+                                        value={guruOptions.find((g: any) => g.value === formData.nama_guru)}
                                         onChange={(opt: any) => updateForm('nama_guru', opt?.value)}
                                         isLoading={loadingMaster}
                                         styles={customSelectStyles}
@@ -281,7 +281,7 @@ export default function JurnalPembelajaranPage() {
                                         <Select
                                             instanceId="select-kelas-jurnal"
                                             options={kelasOptions}
-                                            value={kelasOptions.find(k => k.value === formData.kelas)}
+                                            value={kelasOptions.find((k: any) => k.value === formData.kelas)}
                                             placeholder="Pilih kelas..."
                                             onChange={(opt: any) => updateForm('kelas', opt?.value)}
                                             styles={customSelectStyles}
@@ -293,7 +293,7 @@ export default function JurnalPembelajaranPage() {
                                     <Select
                                         instanceId="select-mapel-jurnal"
                                         options={mapelOptions}
-                                        value={mapelOptions.find(m => m.value === formData.mata_pelajaran)}
+                                        value={mapelOptions.find((m: any) => m.value === formData.mata_pelajaran)}
                                         placeholder="Pilih mapel..."
                                         onChange={(opt: any) => updateForm('mata_pelajaran', opt?.value)}
                                         styles={customSelectStyles}
@@ -354,7 +354,7 @@ export default function JurnalPembelajaranPage() {
                                             <Select
                                                 instanceId="select-pengganti-jurnal"
                                                 options={guruOptions}
-                                                value={guruOptions.find(g => g.value === formData.guru_pengganti)}
+                                                value={guruOptions.find((g: any) => g.value === formData.guru_pengganti)}
                                                 onChange={(opt: any) => updateForm('guru_pengganti', opt?.value)}
                                                 styles={customSelectStyles}
                                             />
@@ -377,7 +377,7 @@ export default function JurnalPembelajaranPage() {
                                     <Select
                                         instanceId="select-piket-jurnal"
                                         options={guruOptions}
-                                        value={guruOptions.find(g => g.value === formData.guru_piket)}
+                                        value={guruOptions.find((g: any) => g.value === formData.guru_piket)}
                                         onChange={(opt: any) => updateForm('guru_piket', opt?.value)}
                                         placeholder="Cari guru piket..."
                                         styles={customSelectStyles}
