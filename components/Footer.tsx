@@ -4,7 +4,7 @@ export default function Footer() {
             <div className="container footerInner">
                 <div className="brandMini">
                     <img src="/logo-a.png" alt="Logo" className="logoImgSmall" />
-                    <span>Akademik IC Gowa</span>
+                    <span>Akademik MAN IC Gowa</span>
                 </div>
                 <div className="muted">© {new Date().getFullYear()} • All rights reserved</div>
             </div>

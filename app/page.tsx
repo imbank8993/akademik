@@ -1,10 +1,11 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
-import Features from "@/components/Features";
+import Informasi from "@/components/Informasi";
 import Testimonials from "@/components/Testimonials";
-import Pricing from "@/components/Pricing";
-import Contact from "@/components/Contact";
+import Laporan from "@/components/Laporan";
+import Aplikasi from "@/components/Aplikasi";
 import Footer from "@/components/Footer";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 
 export default function Page() {
   return (
@@ -12,12 +13,13 @@ export default function Page() {
       <Header />
       <main>
         <Hero />
-        <Features />
+        <Informasi />
+        <Laporan />
         <Testimonials />
-        <Pricing />
-        <Contact />
+        <Aplikasi />
         <Footer />
       </main>
+      <FloatingWhatsApp />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import Reveal from "./Reveal";
 
-export default function Contact() {
+export default function Aplikasi() {
     return (
         <section id="apps" className="section cta">
             <div className="container">

@@ -11,7 +11,7 @@ interface Document {
     created_at: string;
 }
 
-export default function Features() {
+export default function Informasi() {
     const [docs, setDocs] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -21,7 +21,7 @@ export default function Features() {
     useEffect(() => {
         const fetchDocs = async () => {
             try {
-                const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://acca.icgowa.sch.id";
+                const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
                 const API_URL = `${baseUrl}/api/informasi-akademik`;
 
                 console.log("Mencoba mengambil data dari:", API_URL);
@@ -41,7 +41,8 @@ export default function Features() {
                     setDocs(json.data);
                 }
             } catch (error) {
-                console.error("Gagal mengambil data informasi:", error);
+                console.warn("Gagal mengambil data informasi (Backend mungkin offline/CORS belum diatur):", error);
+                // Jangan throw error ke UI, cukup biarkan docs kosong agar menampilkan empty state
             } finally {
                 setLoading(false);
             }
@@ -51,7 +52,7 @@ export default function Features() {
     }, []);
 
     return (
-        <section id="info" className="section">
+        <section id="info" className="section" style={{ backgroundColor: 'var(--bg)', position: 'relative', zIndex: 1 }}>
             <div className="container">
                 <Reveal>
                     <div className="sectionHead">
@@ -64,7 +65,10 @@ export default function Features() {
 
                 <div className="infoGrid">
                     {dynamicCategories.length === 0 && !loading && (
-                        <div className="infoPlaceholder" style={{ gridColumn: '1/-1' }}>Belum ada informasi yang diunggah</div>
+                        <div className="infoPlaceholder" style={{ gridColumn: '1/-1' }}>
+                            <div style={{ marginBottom: '1rem', fontSize: '2rem', opacity: 0.5 }}>📂</div>
+                            <div>Belum ada informasi yang diunggah saat ini.</div>
+                        </div>
                     )}
 
                     {dynamicCategories.map((cat, idx) => {
