@@ -6,6 +6,8 @@ import Footer from '@/components/Footer'
 import Swal from 'sweetalert2'
 import AsyncSelect from 'react-select/async'
 
+import { supabase } from '@/lib/supabase'
+
 export default function UploadPage() {
     const [categories, setCategories] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
@@ -34,9 +36,14 @@ export default function UploadPage() {
         try {
             const res = await fetch(`${API_URL}/api/upload-categories`)
             const data = await res.json()
-            if (data) setCategories(data)
+            if (Array.isArray(data)) {
+                setCategories(data)
+            } else {
+                setCategories([])
+            }
         } catch (err: any) {
             console.error('Gagal mengambil kategori:', err.message)
+            setCategories([])
         } finally {
             setFetching(false)
         }
@@ -48,9 +55,42 @@ export default function UploadPage() {
         try {
             const res = await fetch(`${API_URL}/api/uploader-search?type=${role}&q=${inputValue}`)
             const data = await res.json()
-            return data || []
+
+            let results = []
+            if (Array.isArray(data) && data.length > 0) {
+                results = data
+            } else if (role === 'siswa') {
+                // Jalur cadangan (Direct)
+                const { data: directData } = await supabase
+                    .from('siswa_kelas')
+                    .select('nisn, nama_siswa, kelas')
+                    .ilike('nama_siswa', `%${inputValue}%`)
+                    .eq('aktif', true)
+                    .limit(20);
+
+                if (directData) {
+                    results = directData.map(s => ({
+                        label: `${s.nama_siswa} (${s.kelas || '?'})`,
+                        value: s.nama_siswa,
+                        id: s.nisn
+                    }))
+                }
+            }
+
+            // Deduplikasi Akhir (Frontend Guarantee)
+            const uniqueResults: any[] = []
+            const seen = new Set()
+            results.forEach((item: any) => {
+                const key = item.label.toLowerCase().trim()
+                if (!seen.has(key)) {
+                    seen.add(key)
+                    uniqueResults.push(item)
+                }
+            })
+
+            return uniqueResults
         } catch (err) {
-            console.error('Error mencari pengunggah:', err)
+            console.error('Error loadOptions:', err)
             return []
         }
     }
