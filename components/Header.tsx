@@ -70,6 +70,9 @@ export default function Header() {
           <a className="accaLogoLink" href="https://acca.icgowa.sch.id" target="_blank" rel="noopener noreferrer">
             <img src="/logo-acca.png" alt="ACCA Logo" className="accaLogoImg" title="Ke Laman ACCA" />
           </a>
+          <a className="rdmLogoLink" href="https://rdm.icgowa.sch.id" target="_blank" rel="noopener noreferrer">
+            <img src="/logo-rdm-madrasah-png.png" alt="RDM Logo" className="rdmLogoImg" title="Ke Laman RDM" />
+          </a>
         </nav>
 
         <button
@@ -132,9 +135,14 @@ export default function Header() {
               </a>
             )
           ))}
-          <a className="accaLogoLinkMobile" href="https://acca.icgowa.sch.id" target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
-            <img src="/logo-acca.png" alt="ACCA Logo" className="accaLogoImgMobile" />
-          </a>
+          <div className="mobileAppsLinks">
+            <a className="accaLogoLinkMobile" href="https://acca.icgowa.sch.id" target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
+              <img src="/logo-acca.png" alt="ACCA Logo" className="accaLogoImgMobile" />
+            </a>
+            <a className="rdmLogoLinkMobile" href="https://rdm.icgowa.sch.id" target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
+              <img src="/logo-rdm-madrasah-png.png" alt="RDM Logo" className="rdmLogoImgMobile" />
+            </a>
+          </div>
         </div>
       </div>
 

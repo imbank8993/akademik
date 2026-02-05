@@ -255,10 +255,24 @@ ul {
   transform: translateY(-1px);
 }
 
-.accaLogoImg {
+.accaLogoImg,
+.rdmLogoImg {
   height: 18px;
   width: auto;
   object-fit: contain;
+}
+
+.rdmLogoLink {
+  display: flex;
+  align-items: center;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+  transition: transform 0.2s;
+}
+
+.rdmLogoLink:hover {
+  transform: translateY(-1px);
 }
 
 .accaLogoLinkMobile {
@@ -272,9 +286,28 @@ ul {
   border-top: 1px solid var(--border);
 }
 
-.accaLogoImgMobile {
+.accaLogoImgMobile,
+.rdmLogoImgMobile {
   height: 22px;
   width: auto;
+}
+
+.mobileAppsLinks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.rdmLogoLinkMobile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--primary);
 }
 
 .navDesktop {
