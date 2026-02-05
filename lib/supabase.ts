@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
 
-// Export a dummy client if environment variables are missing to prevent build-time errors
-// Usage of the client should be inside useEffect or client-side event handlers
-export const supabase = (supabaseUrl && supabaseAnonKey)
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : {} as any
+// In Next.js, env vars are baked in at build time.
+// Using dummy values here prevents the build from crashing during static generation
+// when env vars are missing from the build environment.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
