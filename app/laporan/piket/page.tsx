@@ -9,15 +9,11 @@ import '../laporan.css'; // We'll keep general styles but override for specific 
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://acca.icgowa.sch.id';
 
-// List kehadiran hardcoded or fetched? GAS fetched from sheet. We'll use standard.
-const KEHADIRAN_OPTIONS = [
-    'Hadir', 'Sakit', 'Izin', 'Tanpa Keterangan', 'Tugas', 'Kelas Kosong'
-].map(k => ({ value: k, label: k }));
-
 export default function LaporanPiketPage() {
     // Master Data
     const [guruList, setGuruList] = useState<any[]>([]);
     const [kelasList, setKelasList] = useState<string[]>([]);
+    const [kehadiranOptions, setKehadiranOptions] = useState<any[]>([]);
     const [loadingMaster, setLoadingMaster] = useState(true);
 
     // Form State
@@ -59,8 +55,14 @@ export default function LaporanPiketPage() {
                 const resKelas = await fetch(`${API_URL}/api/master/kelas?aktif=true`);
                 const dataKelas = await resKelas.json();
                 if (dataKelas.ok) {
-                    // Sort kelas nicely? They come sorted by name usually
                     setKelasList(dataKelas.data.map((k: any) => k.nama));
+                }
+
+                // Fetch Dropdown Status Kehadiran
+                const resDrop = await fetch(`${API_URL}/api/master/dropdown`);
+                const dataDrop = await resDrop.json();
+                if (dataDrop.ok) {
+                    setKehadiranOptions(dataDrop.data.kategori_kehadiran || []);
                 }
             } catch (err) {
                 console.error("Master data fetch error", err);
@@ -304,9 +306,9 @@ export default function LaporanPiketPage() {
                                         <label>Status Kehadiran</label>
                                         <Select
                                             instanceId={`select-status-${currentClass}`}
-                                            options={KEHADIRAN_OPTIONS}
+                                            options={kehadiranOptions}
                                             onChange={(opt: any) => updateClassData(currentClass, 'status', opt?.value)}
-                                            value={KEHADIRAN_OPTIONS.find(k => k.value === currentData.status)}
+                                            value={kehadiranOptions.find(k => k.value === currentData.status)}
                                             placeholder="Pilih Status..."
                                             styles={customSelectStyles}
                                         />
