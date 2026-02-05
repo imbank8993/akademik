@@ -58,7 +58,7 @@ export default function UploadPage() {
                     .ilike('nama_lengkap', `%${inputValue}%`)
                     .limit(20)
 
-                return (data || []).map(g => ({
+                return (data || []).map((g: any) => ({
                     label: g.nama_lengkap,
                     value: g.nama_lengkap,
                     id: g.nip
@@ -80,14 +80,14 @@ export default function UploadPage() {
                         .ilike('nama_lengkap', `%${inputValue}%`)
                         .limit(20)
 
-                    return (mData || []).map(s => ({
+                    return (mData || []).map((s: any) => ({
                         label: s.nama_lengkap,
                         value: s.nama_lengkap,
                         id: s.nisn
                     }))
                 }
 
-                return data.map(s => ({
+                return data.map((s: any) => ({
                     label: `${s.nama} (${s.kelas})`,
                     value: s.nama,
                     id: s.nisn
