@@ -8,6 +8,7 @@ import Footer from '@/components/Footer';
 import '../laporan.css'; // We'll keep general styles but override for specific UI
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://acca.icgowa.sch.id';
+const PHP_HANDLER_URL = process.env.NEXT_PUBLIC_PHP_HANDLER_URL || 'https://icgowa.sch.id/akademik.icgowa.sch.id/upload_handler.php';
 
 export default function LaporanPiketPage() {
     // Master Data
@@ -33,6 +34,7 @@ export default function LaporanPiketPage() {
     // Submission State
     const [submitting, setSubmitting] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     // File inputs refs
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -91,48 +93,76 @@ export default function LaporanPiketPage() {
         }));
     };
 
-    // File Upload Handler
-    const handleFileUpload = async (kelas: string, file: File) => {
+    // File Upload Handler - Bypassing API to avoid 413 error
+    const handleFileUploadDirect = async (kelas: string, file: File) => {
         if (!file) return;
 
-        // Convert to Base64 to send to upload endpoint (as per GAS logic adaptation)
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const base64Data = (e.target?.result as string).split(',')[1];
+        // Validasi ukuran file (Maks 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            Swal.fire('File Terlalu Besar', 'Ukuran foto maksimal adalah 10 MB.', 'error');
+            return;
+        }
 
-            try {
-                setUploading(true);
-                const res = await fetch(`${API_URL}/api/laporan/piket/upload`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fileData: base64Data,
-                        fileName: file.name,
-                        fileType: file.type,
-                        kelas: kelas
-                    })
+        try {
+            setUploading(true);
+            setUploadProgress(0);
+
+            const result = await new Promise<any>((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+
+                xhr.upload.addEventListener('progress', (event) => {
+                    if (event.lengthComputable) {
+                        const percent = Math.round((event.loaded / event.total) * 100);
+                        setUploadProgress(percent);
+                    }
                 });
 
-                const result = await res.json();
-                if (result.ok) {
-                    updateClassData(kelas, 'dokumentasi_url', result.url);
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Foto Terupload',
-                        text: `Dokumentasi untuk ${kelas} berhasil diunggah.`,
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (err: any) {
-                Swal.fire('Gagal Upload', err.message, 'error');
-            } finally {
-                setUploading(false);
+                xhr.onreadystatechange = () => {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try { resolve(JSON.parse(xhr.responseText)); }
+                            catch (e) { reject(new Error('Format respons server tidak valid')); }
+                        } else {
+                            let errMsg = 'Gagal mengunggah file';
+                            try {
+                                const res = JSON.parse(xhr.responseText);
+                                if (res.message) errMsg = res.message;
+                                else if (res.error) errMsg = res.error;
+                            } catch (e) { }
+                            reject(new Error(errMsg + (xhr.status ? ` (Status: ${xhr.status})` : '')));
+                        }
+                    }
+                };
+
+                // Create FormData for direct PHP upload
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('category', 'piket');
+                formData.append('kelas', kelas);
+
+                xhr.open('POST', PHP_HANDLER_URL);
+                xhr.send(formData);
+            });
+
+            if (result.status === 'success' || result.ok) {
+                const finalUrl = result.file_url || result.publicUrl;
+                updateClassData(kelas, 'dokumentasi_url', finalUrl);
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Foto Terupload',
+                    text: `Dokumentasi untuk ${kelas} berhasil diunggah.`,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            } else {
+                throw new Error(result.message || result.error || 'Gagal mengunggah file ke hosting');
             }
-        };
-        reader.readAsDataURL(file);
+        } catch (err: any) {
+            Swal.fire('Gagal Upload', err.message, 'error');
+        } finally {
+            setUploading(false);
+            setUploadProgress(0);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -151,7 +181,7 @@ export default function LaporanPiketPage() {
                 guru: data.guru,
                 status: data.status,
                 dokumentasi_url: data.dokumentasi_url
-            })).filter(d => d.guru || d.status); // Only send filled classes? GAS checks "if (guru !== '')"
+            })).filter(d => d.guru || d.status);
 
             const payload = {
                 guruPiket: formData.guruPiket,
@@ -206,12 +236,6 @@ export default function LaporanPiketPage() {
 
     const currentClass = kelasList[currentClassIndex] || '';
     const currentData = classData[currentClass] || {};
-    // Check if class is UTBK for documentation (GAS logic: DOK_KELAS = ['UTBK A', 'UTBK B'])
-    // We can allow all classes or restrict. Let's allowing all for flexibility, or follow logic if needed.
-    // The user "ingin mengikuti logika yang ada". The logic was "hanya kelas ini (UTBK)".
-    // But since we fetch dynamic classes, maybe all *can* have photos?
-    // Let's stick to enabling it for ALL classes to be better than GAS, or strict?
-    // Let's enable for ALL.
     const showUpload = true;
 
     return (
@@ -230,7 +254,6 @@ export default function LaporanPiketPage() {
 
                 <div className="laporan-card">
                     <form onSubmit={handleSubmit} className="laporan-form">
-                        {/* IDENTITAS */}
                         <div className="form-section">
                             <h3 className="section-title"><i className="bi bi-person-badge"></i> Identitas Petugas</h3>
                             <div className="flex flex-col md:flex-row gap-4 mb-4 w-full">
@@ -255,7 +278,7 @@ export default function LaporanPiketPage() {
                                         placeholder="Contoh: 1-2"
                                         value={formData.jamPiket}
                                         onChange={e => setFormData({ ...formData, jamPiket: e.target.value })}
-                                        style={{ height: '42px' }} /* Match React Select height approx */
+                                        style={{ height: '42px' }}
                                     />
                                 </div>
                             </div>
@@ -271,7 +294,6 @@ export default function LaporanPiketPage() {
                             </div>
                         </div>
 
-                        {/* CAROUSEL KELAS */}
                         <div className="form-section">
                             <h3 className="section-title text-center mb-4"><i className="bi bi-collection"></i> Input Per Kelas</h3>
 
@@ -291,7 +313,6 @@ export default function LaporanPiketPage() {
                                 <p className="text-center text-gray-500">Memuat data kelas...</p>
                             )}
 
-                            {/* CLASS FORM AREA */}
                             {currentClass && (
                                 <div className="class-form-area animate-fade-in" key={currentClass}>
                                     <h4 className="text-lg font-bold text-center text-primary mb-4">
@@ -330,7 +351,7 @@ export default function LaporanPiketPage() {
                                                     type="file"
                                                     id={`file-upload-${currentClass}`}
                                                     accept="image/*"
-                                                    onChange={(e) => e.target.files?.[0] && handleFileUpload(currentClass, e.target.files[0])}
+                                                    onChange={(e) => e.target.files?.[0] && handleFileUploadDirect(currentClass, e.target.files[0])}
                                                     className="hidden-input"
                                                 />
                                                 <label htmlFor={`file-upload-${currentClass}`} className={`upload-zone ${uploading ? 'uploading' : ''} ${currentData.dokumentasi_url ? 'success' : ''}`}>
@@ -338,7 +359,8 @@ export default function LaporanPiketPage() {
                                                         {uploading ? (
                                                             <>
                                                                 <div className="spinner-border"></div>
-                                                                <span>Mengunggah foto...</span>
+                                                                <span className="font-bold text-primary">{uploadProgress}%</span>
+                                                                <span className="text-xs text-gray-500">Mengunggah...</span>
                                                             </>
                                                         ) : currentData.dokumentasi_url ? (
                                                             <>
@@ -353,7 +375,7 @@ export default function LaporanPiketPage() {
                                                                 <div className="icon-upload"><i className="bi bi-camera-fill"></i></div>
                                                                 <div className="text-content">
                                                                     <span className="font-semibold text-gray-700">Ambil Foto / Upload</span>
-                                                                    <span className="text-xs text-gray-400">Format: JPG, PNG (Max 10MB)</span>
+                                                                    <span className="text-xs text-gray-400">Pilih file (Maks. 10MB)</span>
                                                                 </div>
                                                             </>
                                                         )}
@@ -385,163 +407,202 @@ export default function LaporanPiketPage() {
                             </button>
                         </div>
                     </form>
-
-                    <style jsx>{`
-                        .class-carousel {
-                            display: flex;
-                            justify-content: center;
-                            align-items: center;
-                            gap: 12px;
-                            margin-bottom: 32px;
-                            perspective: 1000px;
-                            height: auto;
-                            padding: 10px 0;
-                        }
-                        .class-card {
-                            min-width: 140px; /* Flexible width but minimum size */
-                            padding: 12px 20px;
-                            border-radius: 16px; /* Standard rounded card, NOT pill */
-                            background: white;
-                            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-                            font-weight: 600;
-                            cursor: pointer;
-                            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-                            border: 1px solid var(--border);
-                            text-align: center;
-                            font-size: 14px;
-                            color: #64748b;
-                        }
-                        .class-card.center {
-                            background: var(--primary);
-                            color: white;
-                            transform: scale(1.05); /* Slight pop */
-                            border-color: var(--primary);
-                            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
-                            z-index: 2;
-                            font-size: 16px;
-                            padding: 14px 24px;
-                        }
-                        .class-card.left, .class-card.right {
-                            background: #f8fafc;
-                            opacity: 0.6;
-                            transform: scale(0.95);
-                        }
-                        .class-card:hover:not(.center) {
-                            background: #f1f5f9;
-                            border-color: #cbd5e1;
-                            opacity: 0.9;
-                        }
-                        .class-form-area {
-                            background: #f8fafc;
-                            padding: 24px;
-                            border-radius: 20px;
-                            border: 1px dashed #cbd5e1;
-                        }
-                        .upload-container {
-                            display: flex;
-                            flex-direction: column;
-                            gap: 8px;
-                        }
-                        .hidden-input {
-                            display: none;
-                        }
-                        .upload-zone {
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            padding: 20px;
-                            border: 2px dashed #cbd5e1;
-                            border-radius: 16px;
-                            background: #fff;
-                            cursor: pointer;
-                            transition: all 0.2s ease;
-                            min-height: 100px;
-                            text-align: center;
-                        }
-                        .upload-zone:hover {
-                            border-color: var(--primary);
-                            background: #eff6ff;
-                        }
-                        .upload-zone.success {
-                            border-color: #10b981;
-                            background: #f0fdf4;
-                        }
-                        .upload-content {
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            gap: 8px;
-                        }
-                        .icon-upload {
-                            font-size: 24px;
-                            color: #64748b;
-                        }
-                        .icon-success {
-                            font-size: 28px;
-                            color: #10b981;
-                        }
-                        .upload-zone:hover .icon-upload {
-                            color: var(--primary);
-                        }
-                        .spinner-border {
-                            width: 24px;
-                            height: 24px;
-                            border: 3px solid #e2e8f0;
-                            border-top-color: var(--primary);
-                            border-radius: 50%;
-                            animation: spin 1s linear infinite;
-                        }
-                        .preview-link {
-                            font-size: 14px;
-                            color: var(--primary);
-                            text-align: center;
-                            font-weight: 500;
-                            text-decoration: none;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            gap: 6px;
-                            padding: 8px;
-                            background: #f1f5f9;
-                            border-radius: 8px;
-                            transition: background 0.2s;
-                        }
-                        .preview-link:hover {
-                            background: #e2e8f0;
-                        }
-                        @keyframes spin {
-                            to { transform: rotate(360deg); }
-                        }
-                        .form-input {
-                            width: 100%;
-                            padding: 12px 16px;
-                            border-radius: 12px;
-                            border: 1.5px solid var(--border);
-                            font-size: 14px;
-                            outline: none;
-                            transition: border-color 0.2s;
-                        }
-                        .form-input:focus {
-                            border-color: var(--primary);
-                            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
-                        }
-                        .animate-fade-in {
-                            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-                        }
-                        @keyframes fadeIn {
-                            from { opacity: 0; transform: translateY(10px); }
-                            to { opacity: 1; transform: translateY(0); }
-                        }
-                    `}</style>
                 </div>
             </div>
-
             <Footer />
+
+            <style jsx>{`
+                .laporan-page { 
+                    max-width: 1000px;
+                    margin: 0 auto;
+                    padding: 40px 20px;
+                }
+                .laporan-banner {
+                    background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%);
+                    padding: 40px;
+                    border-radius: 24px;
+                    color: white;
+                    margin-bottom: 40px;
+                }
+                .header-content {
+                    display: flex;
+                    align-items: center;
+                    gap: 20px;
+                }
+                .header-icon {
+                    width: 60px;
+                    height: 60px;
+                    background: rgba(255,255,255,0.1);
+                    border-radius: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 30px;
+                }
+                .laporan-banner h1 {
+                    font-size: 24px;
+                    font-weight: 800;
+                    margin: 0;
+                }
+                .laporan-banner p {
+                    margin: 5px 0 0;
+                    opacity: 0.8;
+                }
+                .laporan-card {
+                    background: white;
+                    padding: 30px;
+                    border-radius: 24px;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+                    border: 1px solid #f1f5f9;
+                }
+                .form-section {
+                    margin-bottom: 40px;
+                }
+                .section-title {
+                    font-size: 18px;
+                    font-weight: 700;
+                    color: #1e293b;
+                    margin-bottom: 20px;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                .class-carousel {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 32px;
+                    perspective: 1000px;
+                    height: auto;
+                    padding: 10px 0;
+                }
+                .class-card {
+                    min-width: 120px;
+                    padding: 12px 20px;
+                    border-radius: 16px;
+                    background: white;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    border: 1px solid #e2e8f0;
+                    text-align: center;
+                    color: #64748b;
+                }
+                .class-card.center {
+                    background: #1e3a8a;
+                    color: white;
+                    transform: scale(1.1);
+                    z-index: 2;
+                }
+                .class-card.left, .class-card.right {
+                    opacity: 0.5;
+                    transform: scale(0.9);
+                }
+                .class-form-area {
+                    background: #f8fafc;
+                    padding: 24px;
+                    border-radius: 20px;
+                    border: 1px dashed #cbd5e1;
+                }
+                .form-group {
+                    margin-bottom: 20px;
+                }
+                .form-group label {
+                    display: block;
+                    font-weight: 600;
+                    color: #334155;
+                    margin-bottom: 8px;
+                }
+                .upload-zone {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                    border: 2px dashed #cbd5e1;
+                    border-radius: 16px;
+                    background: #fff;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    min-height: 100px;
+                }
+                .upload-zone:hover {
+                    border-color: #1e3a8a;
+                    background: #eff6ff;
+                }
+                .upload-zone.success {
+                    border-color: #10b981;
+                    background: #f0fdf4;
+                }
+                .upload-content {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .spinner-border {
+                    width: 24px;
+                    height: 24px;
+                    border: 3px solid #e2e8f0;
+                    border-top-color: #1e3a8a;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                }
+                .preview-link {
+                    margin-top: 10px;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    color: #1e3a8a;
+                    font-weight: 600;
+                    text-decoration: none;
+                }
+                .form-footer {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-top: 40px;
+                    padding-top: 20px;
+                    border-top: 1.5px solid #f1f5f9;
+                }
+                .submit-btn {
+                    background: #1e3a8a;
+                    color: white;
+                    border: none;
+                    padding: 14px 28px;
+                    border-radius: 14px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    transition: all 0.2s;
+                }
+                .submit-btn:hover:not(:disabled) {
+                    background: #1e40af;
+                    transform: translateY(-2px);
+                }
+                .submit-btn:disabled {
+                    opacity: 0.6;
+                    cursor: wait;
+                }
+                .hidden-input { display: none; }
+                .form-input {
+                    padding: 10px 15px;
+                    border: 1.5px solid #e2e8f0;
+                    border-radius: 10px;
+                    outline: none;
+                    width: 100%;
+                }
+                .form-input:focus { border-color: #1e3a8a; }
+                @keyframes spin { to { transform: rotate(360deg); } }
+            `}</style>
         </>
     );
 }
 
 const customSelectStyles = {
-    control: (base: any) => ({ ...base, borderRadius: '12px', border: '1.5px solid var(--border)', padding: '2px', fontSize: '14px', backgroundColor: 'white', '&:hover': { borderColor: 'var(--primary)' } }),
-    option: (base: any, state: any) => ({ ...base, backgroundColor: state.isSelected ? 'var(--primary)' : state.isFocused ? 'var(--primary-light)' : 'white', color: state.isSelected ? 'white' : 'var(--text)', fontSize: '14px' }),
+    control: (base: any) => ({ ...base, borderRadius: '12px', border: '1.5px solid #e2e8f0', padding: '2px', fontSize: '14px', '&:hover': { borderColor: '#1e3a8a' } }),
+    option: (base: any, state: any) => ({ ...base, backgroundColor: state.isSelected ? '#1e3a8a' : state.isFocused ? '#eff6ff' : 'white', color: state.isSelected ? 'white' : '#1e293b', fontSize: '14px' }),
 };

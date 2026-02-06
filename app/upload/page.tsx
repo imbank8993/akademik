@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 export default function UploadPage() {
     const [categories, setCategories] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
+    const [uploadProgress, setUploadProgress] = useState(0)
     const [fetching, setFetching] = useState(true)
     const [mounted, setMounted] = useState(false)
 
@@ -108,6 +109,7 @@ export default function UploadPage() {
         }
 
         setLoading(true)
+        setUploadProgress(0)
 
         try {
             const formPayload = new FormData()
@@ -117,12 +119,36 @@ export default function UploadPage() {
             formPayload.append('category', categoryName)
             formPayload.append('file', file)
 
-            const uploadRes = await fetch(PHP_HANDLER_URL, {
-                method: 'POST',
-                body: formPayload,
-            })
+            const uploadData = await new Promise<any>((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
 
-            const uploadData = await uploadRes.json()
+                xhr.upload.addEventListener('progress', (event) => {
+                    if (event.lengthComputable) {
+                        const percent = Math.round((event.loaded / event.total) * 100);
+                        setUploadProgress(percent);
+                    }
+                });
+
+                xhr.onreadystatechange = () => {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try { resolve(JSON.parse(xhr.responseText)); }
+                            catch (e) { reject(new Error('Invalid response from upload server')); }
+                        } else {
+                            let errMsg = 'Gagal mengunggah file ke hosting';
+                            try {
+                                const res = JSON.parse(xhr.responseText);
+                                if (res.message) errMsg = res.message;
+                                else if (res.error) errMsg = res.error;
+                            } catch (e) { }
+                            reject(new Error(errMsg + (xhr.status ? ` (Status: ${xhr.status})` : '')));
+                        }
+                    }
+                };
+
+                xhr.open('POST', PHP_HANDLER_URL);
+                xhr.send(formPayload);
+            });
 
             if (uploadData.status === 'success') {
                 const metaRes = await fetch(`${API_URL}/api/uploaded-documents`, {
@@ -165,6 +191,7 @@ export default function UploadPage() {
             })
         } finally {
             setLoading(false)
+            setUploadProgress(0)
         }
     }
 
@@ -321,9 +348,15 @@ export default function UploadPage() {
 
                                     <button type="submit" className="btn-upload" disabled={loading}>
                                         {loading ? (
-                                            <><span className="spinner"></span> Sinkronisasi Sistem...</>
+                                            <>
+                                                <span className="spinner"></span>
+                                                <span>Mengunggah {uploadProgress}%</span>
+                                            </>
                                         ) : (
-                                            <>Lanjutkan Proses <i className="bi bi-arrow-right-short"></i></>
+                                            <>
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                                                Kirim Dokumen Sekarang
+                                            </>
                                         )}
                                     </button>
                                 </form>
