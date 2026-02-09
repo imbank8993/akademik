@@ -8,6 +8,7 @@ interface Document {
     title: string;
     category: string;
     file_url: string;
+    show_on_landing: boolean;
     created_at: string;
 }
 
@@ -22,7 +23,8 @@ export default function Informasi() {
         const fetchDocs = async () => {
             try {
                 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://acca.icgowa.sch.id";
-                const API_URL = `${baseUrl}/api/informasi-akademik`;
+                // Hanya ambil dokumen yang show_on_landing = true
+                const API_URL = `${baseUrl}/api/informasi-akademik?show_on_landing=true`;
 
                 console.log("Mencoba mengambil data dari:", API_URL);
 
