@@ -19,7 +19,7 @@ export default function UploadPage() {
     const [selectedUploader, setSelectedUploader] = useState<any>(null)
     const [role, setRole] = useState('siswa')
     const [categoryId, setCategoryId] = useState('')
-    const [file, setFile] = useState<File | null>(null)
+    const [files, setFiles] = useState<File[]>([])
 
     const PHP_HANDLER_URL = process.env.NEXT_PUBLIC_PHP_HANDLER_URL || 'https://icgowa.sch.id/akademik.icgowa.sch.id/upload_handler.php'
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://acca.icgowa.sch.id'
@@ -98,7 +98,7 @@ export default function UploadPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!selectedUploader || !categoryId || !file) {
+        if (!selectedUploader || !categoryId || files.length === 0) {
             Swal.fire({
                 title: 'Data Belum Lengkap',
                 text: 'Pastikan nama pengunggah, kategori, dan berkas sudah terpilih.',
@@ -109,90 +109,95 @@ export default function UploadPage() {
         }
 
         setLoading(true)
-        setUploadProgress(0)
+        const totalFiles = files.length
+        let successCount = 0
+        let failCount = 0
 
-        try {
-            const formPayload = new FormData()
-            const category = categories.find(c => c.id === categoryId)
-            const categoryName = category?.name || 'General'
+        const category = categories.find(c => c.id === categoryId)
+        const categoryName = category?.name || 'General'
 
-            formPayload.append('category', categoryName)
-            formPayload.append('file', file)
+        for (let i = 0; i < totalFiles; i++) {
+            const currentFile = files[i]
+            setUploadProgress(0)
 
-            const uploadData = await new Promise<any>((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
+            try {
+                const formPayload = new FormData()
+                formPayload.append('category', categoryName)
+                formPayload.append('file', currentFile)
 
-                xhr.upload.addEventListener('progress', (event) => {
-                    if (event.lengthComputable) {
-                        const percent = Math.round((event.loaded / event.total) * 100);
-                        setUploadProgress(percent);
-                    }
+                const uploadData = await new Promise<any>((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.upload.addEventListener('progress', (event) => {
+                        if (event.lengthComputable) {
+                            const percent = Math.round((event.loaded / event.total) * 100);
+                            setUploadProgress(percent);
+                        }
+                    });
+
+                    xhr.onreadystatechange = () => {
+                        if (xhr.readyState === 4) {
+                            if (xhr.status === 200) {
+                                try { resolve(JSON.parse(xhr.responseText)); }
+                                catch (e) { reject(new Error('Invalid response')); }
+                            } else {
+                                reject(new Error('Upload failed'));
+                            }
+                        }
+                    };
+
+                    xhr.open('POST', PHP_HANDLER_URL);
+                    xhr.send(formPayload);
                 });
 
-                xhr.onreadystatechange = () => {
-                    if (xhr.readyState === 4) {
-                        if (xhr.status === 200) {
-                            try { resolve(JSON.parse(xhr.responseText)); }
-                            catch (e) { reject(new Error('Invalid response from upload server')); }
-                        } else {
-                            let errMsg = 'Gagal mengunggah file ke hosting';
-                            try {
-                                const res = JSON.parse(xhr.responseText);
-                                if (res.message) errMsg = res.message;
-                                else if (res.error) errMsg = res.error;
-                            } catch (e) { }
-                            reject(new Error(errMsg + (xhr.status ? ` (Status: ${xhr.status})` : '')));
-                        }
-                    }
-                };
-
-                xhr.open('POST', PHP_HANDLER_URL);
-                xhr.send(formPayload);
-            });
-
-            if (uploadData.status === 'success') {
-                const metaRes = await fetch(`${API_URL}/api/uploaded-documents`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        uploader_name: selectedUploader.value,
-                        uploader_role: role,
-                        category_id: categoryId,
-                        category_name: categoryName,
-                        file_name: uploadData.file_name,
-                        file_url: uploadData.file_url,
-                        file_path: uploadData.file_path,
+                if (uploadData.status === 'success') {
+                    const metaRes = await fetch(`${API_URL}/api/uploaded-documents`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            uploader_name: selectedUploader.value,
+                            uploader_role: role,
+                            category_id: categoryId,
+                            category_name: categoryName,
+                            file_name: uploadData.file_name,
+                            file_url: uploadData.file_url,
+                            file_path: uploadData.file_path,
+                        })
                     })
-                })
 
-                if (!metaRes.ok) throw new Error('Gagal menyimpan metadata ke database akademik.')
-
-                Swal.fire({
-                    title: 'Unggah Berhasil',
-                    text: 'Dokumen Anda telah aman tersimpan di sistem.',
-                    icon: 'success',
-                    confirmButtonColor: '#0038A8'
-                })
-
-                setSelectedUploader(null)
-                setCategoryId('')
-                setFile(null)
-                const fileInput = document.getElementById('file-upload') as HTMLInputElement
-                if (fileInput) fileInput.value = ''
-            } else {
-                throw new Error(uploadData.message || 'Gagal mengunggah file ke hosting.')
+                    if (metaRes.ok) successCount++
+                    else failCount++
+                } else {
+                    failCount++
+                }
+            } catch (err: any) {
+                console.error(`Gagal mengunggah ${currentFile.name}:`, err)
+                failCount++
             }
-        } catch (err: any) {
-            Swal.fire({
-                title: 'Masalah Sistem',
-                text: err.message || 'Terjadi kesalahan saat memproses unggahan.',
-                icon: 'error',
-                confirmButtonColor: '#e11d48'
-            })
-        } finally {
-            setLoading(false)
-            setUploadProgress(0)
         }
+
+        if (failCount === 0) {
+            Swal.fire({
+                title: 'Unggah Berhasil',
+                text: `${successCount} dokumen Anda telah aman tersimpan di sistem.`,
+                icon: 'success',
+                confirmButtonColor: '#0038A8'
+            })
+            setSelectedUploader(null)
+            setCategoryId('')
+            setFiles([])
+            const fileInput = document.getElementById('file-upload') as HTMLInputElement
+            if (fileInput) fileInput.value = ''
+        } else {
+            Swal.fire({
+                title: 'Hasil Unggahan',
+                text: `${successCount} Berhasil, ${failCount} Gagal.`,
+                icon: successCount > 0 ? 'warning' : 'error',
+                confirmButtonColor: '#0038A8'
+            })
+        }
+
+        setLoading(false)
+        setUploadProgress(0)
     }
 
     return (
@@ -317,20 +322,21 @@ export default function UploadPage() {
 
                                     <div className="form-group">
                                         <label>Unggah Berkas</label>
-                                        <div className={`file-dropzone ${file ? 'has-file' : ''}`}>
+                                        <div className={`file-dropzone ${files.length > 0 ? 'has-file' : ''}`}>
                                             <input
                                                 id="file-upload"
                                                 type="file"
-                                                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                                onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                                                multiple
                                                 required
                                             />
                                             <div className="dropzone-content">
-                                                {file ? (
+                                                {files.length > 0 ? (
                                                     <>
                                                         <i className="bi bi-file-earmark-check-fill text-success"></i>
                                                         <div className="file-info">
-                                                            <span className="file-name">{file.name}</span>
-                                                            <span className="file-size">{(file.size / 1024).toFixed(2)} KB</span>
+                                                            <span className="file-name">{files.length} Berkas Terpilih</span>
+                                                            <span className="file-size">{(files.reduce((acc, f) => acc + f.size, 0) / 1024).toFixed(2)} KB</span>
                                                         </div>
                                                     </>
                                                 ) : (
