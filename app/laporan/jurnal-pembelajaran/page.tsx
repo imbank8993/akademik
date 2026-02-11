@@ -143,8 +143,53 @@ export default function JurnalPembelajaranPage() {
             }
         }
         setJamOptions(availableJams.length > 1 ? [{ value: 'all', label: '--- PILIH SEMUA JAM ---', isAll: true }, ...availableJams] : availableJams);
-
     }, [formData.tanggal, formData.nip, formData.kelas, formData.mata_pelajaran, masterData, loadingMaster]);
+
+    const [existingJurnal, setExistingJurnal] = useState<any>(null);
+
+    useEffect(() => {
+        const checkExisting = async () => {
+            if (!formData.nip || !formData.tanggal || !formData.kelas || selectedHours.length === 0) {
+                setExistingJurnal(null);
+                return;
+            }
+
+            try {
+                // Check all selected hours
+                const jamParam = selectedHours.join(',');
+                const res = await fetch(`${API_URL}/api/jurnal/check-slot?tanggal=${formData.tanggal}&kelas=${formData.kelas}&jam_ke_id=${jamParam}`);
+                const result = await res.json();
+
+                if (result.ok && result.data) {
+                    const existing = result.data;
+                    setExistingJurnal(existing);
+
+                    // Force pre-fill and lock if DB HAS content
+                    const dbMateri = !isEmpty(existing.materi) ? existing.materi : '';
+                    const dbRefleksi = !isEmpty(existing.refleksi) ? existing.refleksi : '';
+
+                    if (dbMateri || dbRefleksi) {
+                        setFormData((prev: any) => ({
+                            ...prev,
+                            materi: dbMateri || prev.materi,
+                            refleksi: dbRefleksi || prev.refleksi
+                        }));
+                    }
+                } else {
+                    setExistingJurnal(null);
+                    setFormData((prev: any) => ({ ...prev, materi: '', refleksi: '' }));
+                }
+            } catch (err) {
+                console.error('Check existing fail', err);
+            }
+        };
+
+        const isEmpty = (v: any) => v === null || v === undefined || String(v).trim() === '';
+
+        // Use a small timeout to let state settle
+        const timer = setTimeout(checkExisting, 100);
+        return () => clearTimeout(timer);
+    }, [formData.tanggal, formData.nip, formData.kelas, selectedHours]);
 
     const updateForm = (key: string, value: any) => {
         setFormData((prev: any) => {
@@ -187,17 +232,26 @@ export default function JurnalPembelajaranPage() {
             Swal.fire('Perhatian', 'Guru Pengganti dan Status Kehadiran wajib diisi untuk kategori ini!', 'warning');
             return;
         }
-
         setSubmitting(true);
         try {
             const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             const hari = days[new Date(formData.tanggal).getDay()];
-            const payload = {
+            const payload: any = {
                 ...formData,
                 jam_ke: selectedHours.sort((a, b) => a - b).join(','),
                 hari,
-                selected_hours: selectedHours
+                selected_hours: selectedHours,
+                filled_by: 'SISWA'
             };
+
+            // Triple Protection: Force check if DB has content, and strip from payload if so
+            const resSlot = await fetch(`${API_URL}/api/jurnal/check-slot?tanggal=${formData.tanggal}&kelas=${formData.kelas}&jam_ke_id=${selectedHours.join(',')}`);
+            const slotResult = await resSlot.json();
+
+            if (slotResult.ok && slotResult.data) {
+                if (slotResult.data.materi) delete payload.materi;
+                if (slotResult.data.refleksi) delete payload.refleksi;
+            }
 
             const res = await fetch(`${API_URL}/api/jurnal/submit`, {
                 method: 'POST',
@@ -386,7 +440,22 @@ export default function JurnalPembelajaranPage() {
                             </div>
 
                             <div className="form-section span-2">
-                                <h3 className="section-title"><i className="bi bi-card-text"></i> Detail Pembelajaran</h3>
+                                <h3 className="section-title">
+                                    <i className="bi bi-card-text"></i> Detail Pembelajaran
+                                    {(existingJurnal?.materi || existingJurnal?.refleksi) && (
+                                        <span className="ml-2 text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full animate-pulse font-normal">
+                                            <i className="bi bi-lock-fill"></i> Data Terkunci
+                                        </span>
+                                    )}
+                                </h3>
+
+                                {(existingJurnal?.materi || existingJurnal?.refleksi) && (
+                                    <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl mb-4 text-xs text-blue-800 flex items-start gap-3">
+                                        <i className="bi bi-info-circle-fill text-blue-500 text-lg"></i>
+                                        <p>Materi dan Refleksi untuk jam ini sudah tercatat di sistem. Untuk menjaga integritas data, isian yang sudah masuk tidak dapat diubah kembali melalui aplikasi ini.</p>
+                                    </div>
+                                )}
+
                                 <div className="form-group">
                                     <label>Materi Pembelajaran</label>
                                     <textarea
@@ -394,6 +463,8 @@ export default function JurnalPembelajaranPage() {
                                         onChange={(e) => updateForm('materi', e.target.value)}
                                         placeholder="Contoh: Bab 3 — Persamaan Kuadrat..."
                                         rows={2}
+                                        disabled={existingJurnal?.materi && existingJurnal.materi.trim() !== ''}
+                                        className={existingJurnal?.materi ? 'bg-slate-50 opacity-80' : ''}
                                     ></textarea>
                                 </div>
                                 <div className="form-group">
@@ -403,6 +474,8 @@ export default function JurnalPembelajaranPage() {
                                         onChange={(e) => updateForm('refleksi', e.target.value)}
                                         placeholder="Catatan hasil belajar atau hal penting lainnya..."
                                         rows={2}
+                                        disabled={existingJurnal?.refleksi && existingJurnal.refleksi.trim() !== ''}
+                                        className={existingJurnal?.refleksi ? 'bg-slate-50 opacity-80' : ''}
                                     ></textarea>
                                 </div>
                                 <div className="form-group">
