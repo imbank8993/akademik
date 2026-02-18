@@ -11,12 +11,17 @@ export async function POST(request: Request) {
         }
 
         // Initialize Supabase Admin Client for bypassing RLS
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-        const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+        if (!supabaseUrl) {
+            console.error('SERVER ERROR: NEXT_PUBLIC_SUPABASE_URL is missing.')
+            return NextResponse.json({ ok: false, error: 'Server Config Error: Missing Supabase URL' }, { status: 500 })
+        }
 
         if (!supabaseServiceRoleKey) {
             console.error('SERVER ERROR: SUPABASE_SERVICE_ROLE_KEY is missing.')
-            return NextResponse.json({ ok: false, error: 'Konfigurasi Server Bermasalah' }, { status: 500 })
+            return NextResponse.json({ ok: false, error: 'Server Config Error: Missing Service Role Key' }, { status: 500 })
         }
 
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
