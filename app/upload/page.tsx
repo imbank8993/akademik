@@ -33,10 +33,12 @@ export default function UploadPage() {
         setSelectedUploader(null)
     }, [role])
 
+
     const fetchCategories = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/upload-categories`)
+            const res = await fetch(`${API_URL}/api/upload-categories?type=student`)
             const data = await res.json()
+
             if (Array.isArray(data)) {
                 setCategories(data)
             } else {

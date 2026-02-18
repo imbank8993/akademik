@@ -29,6 +29,14 @@ const forms = [
         active: true,
         locked: false
     },
+    {
+        title: "Cek Dokumen Siswa",
+        description: "Verifikasi dan unduh dokumen akademik resmi siswa secara mandiri.",
+        icon: "bi-file-earmark-lock-fill",
+        href: "/cek-dokumen",
+        active: true,
+        locked: false
+    },
 ];
 
 export default function Laporan() {

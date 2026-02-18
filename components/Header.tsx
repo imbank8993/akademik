@@ -11,7 +11,8 @@ const navItems = [
     dropdown: [
       { label: "Jurnal Pembelajaran", href: "/laporan/jurnal-pembelajaran" },
       { label: "Laporan Piket", href: "/laporan/piket" },
-      { label: "Unggah Dokumen", href: "/upload" }
+      { label: "Unggah Dokumen", href: "/upload" },
+      { label: "Cek Dokumen Siswa", href: "/cek-dokumen" }
     ]
   },
   { label: "Aplikasi", href: "/#apps" },
