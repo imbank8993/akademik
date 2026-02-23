@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Reveal from "./Reveal";
 
 interface AgendaItem {
@@ -16,268 +16,313 @@ interface AgendaItem {
     warna: string;
 }
 
-const KATEGORI_CONFIG: Record<string, { icon: string; emoji: string }> = {
-    Umum: { icon: "📅", emoji: "📅" },
-    Ujian: { icon: "✏️", emoji: "✏️" },
-    Libur: { icon: "🌴", emoji: "🌴" },
-    Rapat: { icon: "👥", emoji: "👥" },
-    Kegiatan: { icon: "⭐", emoji: "⭐" },
-    Penerimaan: { icon: "🎓", emoji: "🎓" },
-    Lainnya: { icon: "📌", emoji: "📌" },
-};
+interface HolidayItem {
+    tanggal: string;
+    nama: string;
+}
 
 const BULAN_LABELS = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember"
 ];
 
-function formatDate(dateStr: string) {
-    const d = new Date(dateStr + "T00:00:00");
-    return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
-}
+const HARI_LABELS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
-function formatShortDate(dateStr: string) {
-    const d = new Date(dateStr + "T00:00:00");
-    return { day: d.getDate(), month: BULAN_LABELS[d.getMonth()].slice(0, 3).toUpperCase(), year: d.getFullYear() };
+const KATEGORI_CONFIG: Record<string, { emoji: string }> = {
+    Umum: { emoji: "📅" },
+    Ujian: { emoji: "✏️" },
+    Libur: { emoji: "🌴" },
+    Rapat: { emoji: "👥" },
+    Kegiatan: { emoji: "⭐" },
+    Penerimaan: { emoji: "🎓" },
+    Lainnya: { emoji: "📌" },
+};
+
+function toDateStr(y: number, m: number, d: number) {
+    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 function formatWaktu(w: string | null) {
     return w ? w.slice(0, 5) : "";
 }
 
-function getDaysLeft(dateStr: string): number {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const target = new Date(dateStr + "T00:00:00"); target.setHours(0, 0, 0, 0);
-    return Math.ceil((target.getTime() - today.getTime()) / 86400000);
+function formatDate(dateStr: string) {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 }
 
 export default function Agenda() {
     const [agendas, setAgendas] = useState<AgendaItem[]>([]);
+    const [holidays, setHolidays] = useState<HolidayItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filterBulan, setFilterBulan] = useState<string>("");
-    const [activeFilter, setActiveFilter] = useState<string>("Mendatang");
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-    const today = new Date().toISOString().slice(0, 10);
-    const thisYear = new Date().getFullYear();
+    const now = new Date();
+    const [viewYear, setViewYear] = useState(now.getFullYear());
+    const [viewMonth, setViewMonth] = useState(now.getMonth()); // 0-indexed
 
-    const bulanOptions = Array.from({ length: 12 }, (_, i) => ({
-        label: BULAN_LABELS[i].slice(0, 3),
-        value: `${thisYear}-${String(i + 1).padStart(2, "0")}`,
-        full: BULAN_LABELS[i],
-    }));
+    const todayStr = now.toISOString().slice(0, 10);
 
+    // Fetch academic agenda
     useEffect(() => {
         const fetchAgenda = async () => {
             setLoading(true);
             try {
                 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://acca.icgowa.sch.id";
-                const params = new URLSearchParams();
-                if (filterBulan) params.append("bulan", filterBulan);
-                const res = await fetch(`${baseUrl}/api/agenda-akademik/public?${params}`);
-                if (!res.ok) throw new Error("Gagal mengambil data");
+                const res = await fetch(`${baseUrl}/api/agenda-akademik/public`);
+                if (!res.ok) throw new Error("Gagal ambil agenda");
                 const json = await res.json();
                 setAgendas(json.data || []);
             } catch (e) {
                 console.warn("Gagal ambil agenda:", e);
-                setAgendas([]);
             } finally {
                 setLoading(false);
             }
         };
         fetchAgenda();
-    }, [filterBulan]);
+    }, []);
 
-    const filtered = agendas.filter(a => {
-        if (activeFilter === "Mendatang") return a.tanggal_mulai >= today;
-        if (activeFilter === "Berlangsung") {
-            const end = a.tanggal_selesai || a.tanggal_mulai;
-            return a.tanggal_mulai <= today && end >= today;
-        }
-        return true;
-    });
+    // Fetch national holidays independently (does not block agenda)
+    useEffect(() => {
+        const fetchHolidays = async () => {
+            try {
+                const res = await fetch(`https://api-harilibur.vercel.app/api?year=${viewYear}`);
+                if (!res.ok) return;
+                const json = await res.json();
+                const mapped: HolidayItem[] = (json || []).map((h: any) => ({
+                    tanggal: h.holiday_date,
+                    nama: h.holiday_name,
+                }));
+                setHolidays(mapped);
+            } catch {
+                // Silently ignore - holidays are optional
+            }
+        };
+        fetchHolidays();
+    }, [viewYear]);
 
-    const handleBulanSelect = (val: string) => {
-        setFilterBulan(prev => prev === val ? "" : val);
-        setActiveFilter("Semua");
+    // Build event map: dateStr -> agenda items
+    const eventMap = useMemo(() => {
+        const map: Record<string, AgendaItem[]> = {};
+        agendas.forEach(a => {
+            // Span multi-day events
+            const start = new Date(a.tanggal_mulai + "T00:00:00");
+            const end = a.tanggal_selesai ? new Date(a.tanggal_selesai + "T00:00:00") : start;
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                const key = d.toISOString().slice(0, 10);
+                if (!map[key]) map[key] = [];
+                map[key].push(a);
+            }
+        });
+        return map;
+    }, [agendas]);
+
+    // Build holiday set for current view year
+    const holidayMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        holidays.forEach(h => { map[h.tanggal] = h.nama; });
+        return map;
+    }, [holidays]);
+
+    // Calendar grid calculation
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
+
+    const prevMonth = () => {
+        if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+        else setViewMonth(m => m - 1);
     };
 
-    const scrollBulan = (dir: "left" | "right") => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollBy({ left: dir === "left" ? -150 : 150, behavior: "smooth" });
-        }
+    const nextMonth = () => {
+        if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+        else setViewMonth(m => m + 1);
     };
 
-    // Group by month
-    const grouped: Record<string, AgendaItem[]> = {};
-    filtered.forEach(a => {
-        const key = a.tanggal_mulai.slice(0, 7);
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(a);
-    });
+    const goToday = () => {
+        setViewYear(now.getFullYear());
+        setViewMonth(now.getMonth());
+        setSelectedDay(todayStr);
+    };
+
+    // Events for selected day or today
+    const displayDay = selectedDay || todayStr;
+    const dayEvents = eventMap[displayDay] || [];
+    const [displayY, displayM, displayD] = displayDay.split("-").map(Number);
+
+    // Upcoming events (next 5 from today, for the sidebar fallback)
+    const upcomingEvents = agendas
+        .filter(a => a.tanggal_mulai >= todayStr)
+        .sort((a, b) => a.tanggal_mulai.localeCompare(b.tanggal_mulai))
+        .slice(0, 5);
+
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
+    if (!mounted) return null;
 
     return (
         <section id="agenda" className="agenda-section">
-            {/* Background decoration */}
             <div className="ag-bg-blob ag-blob1" />
             <div className="ag-bg-blob ag-blob2" />
 
-            <div className="container">
+            <div className="container" style={{ position: "relative", zIndex: 1 }}>
                 <Reveal>
                     <div className="sectionHead">
                         <div className="section-badge">
-                            <span>📅</span> Jadwal Kegiatan
+                            <span>📅</span> Agenda Akademik
                         </div>
                         <h2 className="h2">
-                            Agenda <span className="ag-accent">Akademik</span>
+                            Kalender <span className="ag-accent">Kegiatan</span>
                         </h2>
                         <p className="muted">
-                            Pantau seluruh agenda dan kegiatan sekolah agar tidak melewatkan momen penting.
+                            Akses cepat jadwal akademik dan kegiatan penting sekolah dalam satu tampilan elegan.
                         </p>
                     </div>
                 </Reveal>
 
-                {/* Filter tabs */}
                 <Reveal delay={100}>
-                    <div className="ag-filter-bar">
-                        <div className="ag-filter-tabs">
-                            {["Mendatang", "Berlangsung", "Semua"].map(f => (
-                                <button
-                                    key={f}
-                                    className={`ag-tab ${activeFilter === f ? "ag-tab-active" : ""}`}
-                                    onClick={() => { setActiveFilter(f); setFilterBulan(""); }}
-                                >
-                                    {f === "Mendatang" && "🔜 "}
-                                    {f === "Berlangsung" && "🟢 "}
-                                    {f === "Semua" && "📋 "}
-                                    {f}
-                                </button>
-                            ))}
-                        </div>
+                    <div className="ag-calendar-card">
+                        {/* Left: Calendar Grid */}
+                        <div className="ag-cal-left">
+                            {/* Calendar Header */}
+                            <div className="ag-cal-header">
+                                <button className="ag-nav-btn" onClick={prevMonth}>‹</button>
+                                <div className="ag-cal-title">
+                                    <span className="ag-cal-month">{BULAN_LABELS[viewMonth]}</span>
+                                    <span className="ag-cal-year">{viewYear}</span>
+                                </div>
+                                <button className="ag-nav-btn" onClick={nextMonth}>›</button>
+                                <button className="ag-today-btn" onClick={goToday}>Hari Ini</button>
+                            </div>
 
-                        {/* Month scroller */}
-                        <div className="ag-month-scroller-wrap">
-                            <button className="ag-scroll-btn" onClick={() => scrollBulan("left")}>‹</button>
-                            <div className="ag-month-scroller" ref={scrollRef}>
-                                {bulanOptions.map(b => (
-                                    <button
-                                        key={b.value}
-                                        className={`ag-month-chip ${filterBulan === b.value ? "ag-month-active" : ""}`}
-                                        onClick={() => handleBulanSelect(b.value)}
-                                    >
-                                        {b.label}
-                                    </button>
+                            {/* Weekday labels */}
+                            <div className="ag-weekdays">
+                                {HARI_LABELS.map(d => (
+                                    <div key={d} className={`ag-weekday ${d === "Min" ? "ag-sunday" : ""}`}>{d}</div>
                                 ))}
                             </div>
-                            <button className="ag-scroll-btn" onClick={() => scrollBulan("right")}>›</button>
+
+                            {/* Calendar grid */}
+                            <div className="ag-grid">
+                                {/* Empty cells for alignment */}
+                                {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                                    <div key={`e-${i}`} className="ag-cell ag-empty-cell" />
+                                ))}
+
+                                {Array.from({ length: daysInMonth }).map((_, i) => {
+                                    const day = i + 1;
+                                    const dateStr = toDateStr(viewYear, viewMonth + 1, day);
+                                    const isToday = dateStr === todayStr;
+                                    const isSelected = dateStr === selectedDay;
+                                    const hasEvent = !!eventMap[dateStr];
+                                    const isHoliday = !!holidayMap[dateStr];
+                                    const dow = (firstDayOfWeek + i) % 7;
+                                    const isSunday = dow === 0;
+
+                                    return (
+                                        <button
+                                            key={day}
+                                            className={[
+                                                "ag-cell",
+                                                isToday ? "ag-cell-today" : "",
+                                                isSelected ? "ag-cell-selected" : "",
+                                                isHoliday ? "ag-cell-holiday" : "",
+                                                isSunday ? "ag-cell-sunday" : "",
+                                                hasEvent ? "ag-cell-has-event" : "",
+                                            ].join(" ").trim()}
+                                            onClick={() => setSelectedDay(dateStr)}
+                                        >
+                                            <span className="ag-day-num">{day}</span>
+                                            {hasEvent && (
+                                                <div className="ag-event-dots">
+                                                    {(eventMap[dateStr] || []).slice(0, 3).map((ev, ei) => (
+                                                        <span key={ei} className="ag-dot-sm" style={{ background: ev.warna }} />
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Legend */}
+                            <div className="ag-legend">
+                                <div className="ag-legend-item"><span className="ag-legend-dot ag-ld-today" />Hari Ini</div>
+                                <div className="ag-legend-item"><span className="ag-legend-dot ag-ld-event" />Kegiatan</div>
+                                <div className="ag-legend-item"><span className="ag-legend-dot ag-ld-holiday" />Libur Nasional</div>
+                            </div>
+                        </div>
+
+                        {/* Right: Event Detail */}
+                        <div className="ag-cal-right">
+                            <div className="ag-detail-header">
+                                <div className="ag-detail-date">
+                                    <span className="ag-detail-day">{displayD}</span>
+                                    <div>
+                                        <div className="ag-detail-month">{BULAN_LABELS[displayM - 1]}</div>
+                                        <div className="ag-detail-year">{displayY}</div>
+                                    </div>
+                                </div>
+                                {holidayMap[displayDay] && (
+                                    <div className="ag-holiday-tag">🏖️ {holidayMap[displayDay]}</div>
+                                )}
+                            </div>
+
+                            {loading ? (
+                                <div className="ag-loading">
+                                    <div className="ag-spinner" />
+                                    <p>Memuat agenda...</p>
+                                </div>
+                            ) : dayEvents.length > 0 ? (
+                                <div className="ag-event-list">
+                                    {dayEvents.map((ev) => (
+                                        <div key={ev.id} className="ag-event-item" style={{ borderLeftColor: ev.warna }}>
+                                            <div className="ag-ev-kat" style={{ color: ev.warna }}>
+                                                {(KATEGORI_CONFIG[ev.kategori] || KATEGORI_CONFIG["Lainnya"]).emoji} {ev.kategori}
+                                            </div>
+                                            <div className="ag-ev-title">{ev.judul}</div>
+                                            {ev.deskripsi && <div className="ag-ev-desc">{ev.deskripsi}</div>}
+                                            <div className="ag-ev-meta">
+                                                {ev.waktu_mulai && <span>🕐 {formatWaktu(ev.waktu_mulai)}{ev.waktu_selesai ? ` – ${formatWaktu(ev.waktu_selesai)}` : ""}</span>}
+                                                {ev.lokasi && <span>📍 {ev.lokasi}</span>}
+                                                {ev.tanggal_selesai && ev.tanggal_selesai !== ev.tanggal_mulai && (
+                                                    <span>📅 s/d {formatDate(ev.tanggal_selesai)}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="ag-no-event">
+                                    <div className="ag-no-event-icon">🗓️</div>
+                                    <p>Tidak ada kegiatan</p>
+                                    <span>Pilih tanggal lain untuk melihat agenda</span>
+                                    {upcomingEvents.length > 0 && (
+                                        <div className="ag-upcoming">
+                                            <div className="ag-upcoming-title">Kegiatan Mendatang</div>
+                                            {upcomingEvents.map(ev => (
+                                                <button
+                                                    key={ev.id}
+                                                    className="ag-upcoming-item"
+                                                    onClick={() => setSelectedDay(ev.tanggal_mulai)}
+                                                >
+                                                    <span className="ag-up-dot" style={{ background: ev.warna }} />
+                                                    <div>
+                                                        <div className="ag-up-title">{ev.judul}</div>
+                                                        <div className="ag-up-date">{formatDate(ev.tanggal_mulai)}</div>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </Reveal>
-
-                {/* Content area */}
-                {loading ? (
-                    <div className="ag-loading">
-                        <div className="ag-spinner" />
-                        <p>Memuat agenda...</p>
-                    </div>
-                ) : filtered.length === 0 ? (
-                    <Reveal>
-                        <div className="ag-empty">
-                            <div className="ag-empty-icon">🗓️</div>
-                            <h3>Belum ada agenda</h3>
-                            <p>Tidak ada kegiatan untuk filter yang dipilih.</p>
-                        </div>
-                    </Reveal>
-                ) : (
-                    <div className="ag-timeline">
-                        {Object.entries(grouped).map(([monthKey, items], gIdx) => {
-                            const [y, m] = monthKey.split("-");
-                            const monthLabel = `${BULAN_LABELS[Number(m) - 1]} ${y}`;
-                            return (
-                                <div key={monthKey} className="ag-month-group">
-                                    <Reveal delay={gIdx * 80}>
-                                        <div className="ag-month-label">
-                                            <div className="ag-month-line" />
-                                            <span>{monthLabel}</span>
-                                            <div className="ag-month-line" />
-                                        </div>
-                                    </Reveal>
-
-                                    <div className="ag-cards">
-                                        {items.map((a, idx) => {
-                                            const daysLeft = getDaysLeft(a.tanggal_mulai);
-                                            const isToday = a.tanggal_mulai === today;
-                                            const isPast = daysLeft < 0;
-                                            const isSoon = daysLeft >= 0 && daysLeft <= 7;
-                                            const dateInfo = formatShortDate(a.tanggal_mulai);
-                                            const katConf = KATEGORI_CONFIG[a.kategori] || KATEGORI_CONFIG["Lainnya"];
-                                            const hasMultiDay = a.tanggal_selesai && a.tanggal_selesai !== a.tanggal_mulai;
-
-                                            return (
-                                                <Reveal key={a.id} delay={gIdx * 80 + idx * 60}>
-                                                    <div className={`ag-card ${isToday ? "ag-card-today" : ""} ${isPast ? "ag-card-past" : ""}`}>
-                                                        {/* Timeline dot */}
-                                                        <div className="ag-dot" style={{ background: a.warna }}>
-                                                            <span>{katConf.emoji}</span>
-                                                        </div>
-
-                                                        {/* Date block */}
-                                                        <div className="ag-date-block" style={{ borderLeftColor: a.warna }}>
-                                                            <div className="ag-day" style={{ color: a.warna }}>{dateInfo.day}</div>
-                                                            <div className="ag-month-sm">{dateInfo.month}</div>
-                                                        </div>
-
-                                                        {/* Content */}
-                                                        <div className="ag-content">
-                                                            <div className="ag-tags">
-                                                                <span className="ag-kat" style={{ background: a.warna + "1A", color: a.warna }}>
-                                                                    {katConf.emoji} {a.kategori}
-                                                                </span>
-                                                                {isToday && <span className="ag-badge ag-today">Hari Ini</span>}
-                                                                {!isPast && !isToday && isSoon && (
-                                                                    <span className="ag-badge ag-soon">{daysLeft} hari lagi</span>
-                                                                )}
-                                                                {isPast && <span className="ag-badge ag-past">Selesai</span>}
-                                                            </div>
-
-                                                            <h3 className="ag-title">{a.judul}</h3>
-
-                                                            {a.deskripsi && (
-                                                                <p className="ag-desc">{a.deskripsi}</p>
-                                                            )}
-
-                                                            <div className="ag-meta">
-                                                                <span className="ag-meta-item">
-                                                                    📅 {formatDate(a.tanggal_mulai)}
-                                                                    {hasMultiDay && ` – ${formatDate(a.tanggal_selesai!)}`}
-                                                                </span>
-                                                                {(a.waktu_mulai || a.waktu_selesai) && (
-                                                                    <span className="ag-meta-item">
-                                                                        🕐 {formatWaktu(a.waktu_mulai)}{a.waktu_selesai ? ` – ${formatWaktu(a.waktu_selesai)}` : ""}
-                                                                    </span>
-                                                                )}
-                                                                {a.lokasi && (
-                                                                    <span className="ag-meta-item">📍 {a.lokasi}</span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Right accent bar */}
-                                                        <div className="ag-right-bar" style={{ background: `linear-gradient(to bottom, ${a.warna}, ${a.warna}80)` }} />
-                                                    </div>
-                                                </Reveal>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
             </div>
 
             <style jsx>{`
-                /* ── SECTION ── */
+                /* Section */
                 .agenda-section {
                     padding: 100px 0;
                     position: relative;
@@ -294,16 +339,15 @@ export default function Agenda() {
                 .ag-blob1 {
                     width: 500px; height: 500px;
                     top: -10%; left: -10%;
-                    background: radial-gradient(circle, rgba(0,56,168,0.08) 0%, transparent 70%);
+                    background: radial-gradient(circle, rgba(0,56,168,0.07) 0%, transparent 70%);
                 }
                 .ag-blob2 {
                     width: 400px; height: 400px;
                     bottom: -5%; right: -5%;
-                    background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+                    background: radial-gradient(circle, rgba(139,92,246,0.07) 0%, transparent 70%);
                 }
-                .container { position: relative; z-index: 1; }
 
-                /* ── SECTION HEADER ── */
+                /* Section badge & accent */
                 .section-badge {
                     display: inline-flex;
                     align-items: center;
@@ -320,262 +364,369 @@ export default function Agenda() {
                 }
                 .ag-accent { color: #0038A8; }
 
-                /* ── FILTER BAR ── */
-                .ag-filter-bar {
-                    display: flex;
-                    align-items: center;
-                    gap: 20px;
-                    margin-bottom: 40px;
-                    flex-wrap: wrap;
+                /* Main calendar card */
+                .ag-calendar-card {
+                    display: grid;
+                    grid-template-columns: 1fr 380px;
+                    gap: 0;
                     background: white;
-                    padding: 14px 20px;
-                    border-radius: 20px;
                     border: 1px solid var(--border);
-                    box-shadow: var(--shadow-sm);
-                }
-                .ag-filter-tabs {
-                    display: flex;
-                    gap: 6px;
-                    flex-shrink: 0;
-                }
-                .ag-tab {
-                    padding: 7px 16px;
-                    border-radius: 999px;
-                    border: 1.5px solid var(--border);
-                    background: transparent;
-                    font-size: 0.82rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    color: var(--text-muted);
-                    transition: all 0.2s;
-                }
-                .ag-tab:hover { border-color: #0038A8; color: #0038A8; }
-                .ag-tab-active {
-                    background: #0038A8;
-                    border-color: #0038A8;
-                    color: white;
-                }
-
-                /* ── MONTH SCROLLER ── */
-                .ag-month-scroller-wrap {
-                    display: flex;
-                    align-items: center;
-                    gap: 6px;
-                    flex: 1;
-                    min-width: 0;
-                }
-                .ag-scroll-btn {
-                    width: 28px; height: 28px;
-                    border-radius: 50%;
-                    border: 1px solid var(--border);
-                    background: white;
-                    cursor: pointer;
-                    font-size: 1.1rem;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-shrink: 0;
-                    color: #0038A8;
-                    transition: all 0.2s;
-                }
-                .ag-scroll-btn:hover { background: #0038A8; color: white; border-color: #0038A8; }
-                .ag-month-scroller {
-                    display: flex;
-                    gap: 6px;
-                    overflow-x: auto;
-                    scrollbar-width: none;
-                    flex: 1;
-                }
-                .ag-month-scroller::-webkit-scrollbar { display: none; }
-                .ag-month-chip {
-                    padding: 5px 14px;
-                    border-radius: 999px;
-                    border: 1.5px solid var(--border);
-                    background: transparent;
-                    font-size: 0.78rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    white-space: nowrap;
-                    color: var(--text-muted);
-                    transition: all 0.15s;
-                }
-                .ag-month-chip:hover { border-color: #0038A8; color: #0038A8; }
-                .ag-month-active {
-                    background: #0038A8;
-                    border-color: #0038A8;
-                    color: white;
-                }
-
-                /* ── TIMELINE ── */
-                .ag-timeline { display: flex; flex-direction: column; gap: 36px; }
-                .ag-month-group { display: flex; flex-direction: column; gap: 14px; }
-                .ag-month-label {
-                    display: flex;
-                    align-items: center;
-                    gap: 14px;
-                    margin-bottom: 4px;
-                }
-                .ag-month-label span {
-                    font-size: 0.82rem;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 0.08em;
-                    color: var(--text-muted);
-                    white-space: nowrap;
-                }
-                .ag-month-line { flex: 1; height: 1px; background: var(--border); }
-                .ag-cards { display: flex; flex-direction: column; gap: 12px; }
-
-                /* ── CARD ── */
-                .ag-card {
-                    display: flex;
-                    align-items: stretch;
-                    background: white;
-                    border-radius: 20px;
-                    border: 1.5px solid var(--border);
+                    border-radius: 24px;
+                    box-shadow: var(--shadow-md);
                     overflow: hidden;
-                    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-                    position: relative;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+                    margin-top: 40px;
+                    min-height: 500px;
                 }
-                .ag-card:hover {
-                    transform: translateX(6px) translateY(-2px);
-                    box-shadow: 0 12px 32px rgba(0,56,168,0.1);
-                    border-color: rgba(0,56,168,0.25);
-                }
-                .ag-card-today {
-                    border-color: #22C55E;
-                    box-shadow: 0 0 0 2px rgba(34,197,94,0.15), 0 4px 20px rgba(34,197,94,0.08);
-                }
-                .ag-card-past { opacity: 0.55; filter: grayscale(0.3); }
-                .ag-card-past:hover { opacity: 0.75; }
 
-                /* Dot */
-                .ag-dot {
-                    width: 52px;
-                    flex-shrink: 0;
+                /* Left: Calendar */
+                .ag-cal-left {
+                    padding: 32px;
+                    border-right: 1px solid var(--border);
+                }
+                .ag-cal-header {
                     display: flex;
                     align-items: center;
-                    justify-content: center;
-                    font-size: 1.4rem;
+                    gap: 12px;
+                    margin-bottom: 24px;
                 }
+                .ag-cal-title {
+                    display: flex;
+                    align-items: baseline;
+                    gap: 8px;
+                    flex: 1;
+                    text-align: center;
+                    justify-content: center;
+                }
+                .ag-cal-month {
+                    font-size: 1.2rem;
+                    font-weight: 800;
+                    color: var(--text);
+                }
+                .ag-cal-year {
+                    font-size: 0.95rem;
+                    color: var(--text-muted);
+                    font-weight: 500;
+                }
+                .ag-nav-btn {
+                    width: 36px; height: 36px;
+                    border-radius: 10px;
+                    border: 1px solid var(--border);
+                    background: white;
+                    font-size: 1.3rem;
+                    cursor: pointer;
+                    color: var(--text);
+                    transition: all 0.2s;
+                    display: flex; align-items: center; justify-content: center;
+                    flex-shrink: 0;
+                }
+                .ag-nav-btn:hover { background: #f0f4ff; border-color: #0038A8; color: #0038A8; }
+                .ag-today-btn {
+                    padding: 7px 14px;
+                    border-radius: 10px;
+                    border: 1px solid #0038A8;
+                    background: #f0f4ff;
+                    color: #0038A8;
+                    font-size: 0.78rem;
+                    font-weight: 700;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    flex-shrink: 0;
+                }
+                .ag-today-btn:hover { background: #0038A8; color: white; }
 
-                /* Date block */
-                .ag-date-block {
+                /* Weekday headers */
+                .ag-weekdays {
+                    display: grid;
+                    grid-template-columns: repeat(7, 1fr);
+                    margin-bottom: 8px;
+                }
+                .ag-weekday {
+                    text-align: center;
+                    font-size: 0.72rem;
+                    font-weight: 700;
+                    color: var(--text-muted);
+                    padding: 6px 0;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                }
+                .ag-sunday { color: #ef4444; }
+
+                /* Calendar grid */
+                .ag-grid {
+                    display: grid;
+                    grid-template-columns: repeat(7, 1fr);
+                    gap: 4px;
+                }
+                .ag-cell {
+                    aspect-ratio: 1;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    padding: 16px 14px;
-                    border-left: 3px solid;
-                    min-width: 64px;
+                    border-radius: 10px;
+                    border: none;
+                    background: transparent;
+                    cursor: pointer;
+                    transition: all 0.18s;
+                    padding: 2px;
+                    gap: 2px;
+                    position: relative;
+                }
+                .ag-empty-cell { cursor: default; }
+                .ag-cell:not(.ag-empty-cell):hover { background: #f0f4ff; }
+                .ag-day-num {
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    color: var(--text);
+                    line-height: 1;
+                }
+                .ag-cell-sunday .ag-day-num { color: #ef4444; }
+                .ag-cell-holiday .ag-day-num { color: #ef4444; }
+                .ag-cell-today {
+                    background: #0038A8 !important;
+                }
+                .ag-cell-today .ag-day-num { color: white; }
+                .ag-cell-selected:not(.ag-cell-today) {
+                    background: #f0f4ff;
+                    box-shadow: 0 0 0 2px #0038A8;
+                }
+                .ag-event-dots {
+                    display: flex;
+                    gap: 2px;
+                    justify-content: center;
+                }
+                .ag-dot-sm {
+                    width: 5px; height: 5px;
+                    border-radius: 50%;
+                    display: block;
                     flex-shrink: 0;
+                }
+                .ag-cell-today .ag-dot-sm { opacity: 0.8; }
+
+                /* Legend */
+                .ag-legend {
+                    display: flex;
+                    gap: 20px;
+                    margin-top: 20px;
+                    padding-top: 16px;
+                    border-top: 1px solid var(--border);
+                    flex-wrap: wrap;
+                }
+                .ag-legend-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 0.75rem;
+                    color: var(--text-muted);
+                }
+                .ag-legend-dot {
+                    width: 10px; height: 10px;
+                    border-radius: 50%;
+                    display: block;
+                }
+                .ag-ld-today { background: #0038A8; }
+                .ag-ld-event { background: #10b981; }
+                .ag-ld-holiday { background: #ef4444; }
+
+                /* Right: Detail Panel */
+                .ag-cal-right {
+                    padding: 32px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
                     background: #fafbff;
                 }
-                .ag-day { font-size: 1.8rem; font-weight: 800; line-height: 1; }
-                .ag-month-sm {
-                    font-size: 0.7rem;
+                .ag-detail-header {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    padding-bottom: 16px;
+                    border-bottom: 1px solid var(--border);
+                }
+                .ag-detail-date {
+                    display: flex;
+                    align-items: center;
+                    gap: 14px;
+                }
+                .ag-detail-day {
+                    font-size: 3rem;
+                    font-weight: 900;
+                    color: #0038A8;
+                    line-height: 1;
+                    font-variant-numeric: tabular-nums;
+                }
+                .ag-detail-month {
+                    font-size: 0.95rem;
                     font-weight: 700;
-                    letter-spacing: 0.06em;
+                    color: var(--text);
+                }
+                .ag-detail-year {
+                    font-size: 0.82rem;
+                    color: var(--text-muted);
+                }
+                .ag-holiday-tag {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 5px 12px;
+                    background: #fef2f2;
+                    color: #dc2626;
+                    border-radius: 8px;
+                    font-size: 0.78rem;
+                    font-weight: 700;
+                    border: 1px solid #fecaca;
+                }
+
+                /* Event list */
+                .ag-event-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    overflow-y: auto;
+                    max-height: 380px;
+                }
+                .ag-event-item {
+                    background: white;
+                    border-radius: 12px;
+                    border: 1px solid var(--border);
+                    border-left: 4px solid;
+                    padding: 14px 16px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                    transition: box-shadow 0.2s;
+                }
+                .ag-event-item:hover { box-shadow: var(--shadow-sm); }
+                .ag-ev-kat {
+                    font-size: 0.72rem;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                }
+                .ag-ev-title {
+                    font-size: 0.9rem;
+                    font-weight: 700;
+                    color: var(--text);
+                    line-height: 1.3;
+                }
+                .ag-ev-desc {
+                    font-size: 0.78rem;
+                    color: var(--text-muted);
+                    line-height: 1.5;
+                }
+                .ag-ev-meta {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 3px;
+                }
+                .ag-ev-meta span {
+                    font-size: 0.73rem;
+                    color: var(--text-muted);
+                }
+
+                /* No event panel */
+                .ag-no-event {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    text-align: center;
+                    gap: 8px;
+                    flex: 1;
+                    justify-content: flex-start;
+                }
+                .ag-no-event-icon { font-size: 2.5rem; margin-bottom: 4px; }
+                .ag-no-event p {
+                    font-size: 0.95rem;
+                    font-weight: 700;
+                    color: var(--text);
+                    margin: 0;
+                }
+                .ag-no-event span {
+                    font-size: 0.78rem;
+                    color: var(--text-muted);
+                }
+
+                /* Upcoming events */
+                .ag-upcoming {
+                    width: 100%;
+                    margin-top: 16px;
+                    text-align: left;
+                    border-top: 1px solid var(--border);
+                    padding-top: 16px;
+                }
+                .ag-upcoming-title {
+                    font-size: 0.72rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                    font-weight: 800;
+                    color: var(--text-muted);
+                    margin-bottom: 10px;
+                }
+                .ag-upcoming-item {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 10px;
+                    width: 100%;
+                    background: white;
+                    border: 1px solid var(--border);
+                    border-radius: 10px;
+                    padding: 10px 12px;
+                    margin-bottom: 8px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    text-align: left;
+                }
+                .ag-upcoming-item:hover { background: #f0f4ff; border-color: #0038A8; }
+                .ag-up-dot {
+                    width: 8px; height: 8px;
+                    border-radius: 50%;
+                    flex-shrink: 0;
+                    margin-top: 5px;
+                }
+                .ag-up-title {
+                    font-size: 0.82rem;
+                    font-weight: 700;
+                    color: var(--text);
+                    line-height: 1.3;
+                }
+                .ag-up-date {
+                    font-size: 0.72rem;
                     color: var(--text-muted);
                     margin-top: 2px;
                 }
 
-                /* Content */
-                .ag-content {
-                    flex: 1;
-                    padding: 16px 18px;
+                /* Loading */
+                .ag-loading {
                     display: flex;
                     flex-direction: column;
-                    gap: 8px;
-                    min-width: 0;
-                }
-                .ag-tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-                .ag-kat {
-                    padding: 3px 10px;
-                    border-radius: 999px;
-                    font-size: 0.73rem;
-                    font-weight: 700;
-                }
-                .ag-badge {
-                    padding: 2px 9px;
-                    border-radius: 999px;
-                    font-size: 0.7rem;
-                    font-weight: 700;
-                }
-                .ag-today { background: #dcfce7; color: #166534; }
-                .ag-soon { background: #ede9fe; color: #5b21b6; }
-                .ag-past { background: #f1f5f9; color: #64748b; }
-
-                .ag-title {
-                    font-size: 1rem;
-                    font-weight: 700;
-                    color: var(--text);
-                    line-height: 1.4;
-                    margin: 0;
-                }
-                .ag-desc {
-                    font-size: 0.83rem;
-                    color: var(--text-muted);
-                    line-height: 1.5;
-                    margin: 0;
-                    display: -webkit-box;
-                    -webkit-line-clamp: 2;
-                    -webkit-box-orient: vertical;
-                    overflow: hidden;
-                }
-                .ag-meta {
-                    display: flex;
+                    align-items: center;
                     gap: 12px;
-                    flex-wrap: wrap;
-                    margin-top: 4px;
-                }
-                .ag-meta-item {
-                    font-size: 0.78rem;
+                    padding: 40px 0;
                     color: var(--text-muted);
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                }
-
-                /* Right accent bar */
-                .ag-right-bar {
-                    width: 5px;
-                    flex-shrink: 0;
-                }
-
-                /* ── EMPTY / LOADING ── */
-                .ag-loading, .ag-empty {
-                    text-align: center;
-                    padding: 80px 20px;
-                    color: var(--text-muted);
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 16px;
+                    font-size: 0.85rem;
                 }
                 .ag-spinner {
-                    width: 44px; height: 44px;
+                    width: 28px; height: 28px;
                     border: 3px solid var(--border);
                     border-top-color: #0038A8;
                     border-radius: 50%;
-                    animation: ag-spin 0.8s linear infinite;
+                    animation: spin 0.8s linear infinite;
                 }
-                @keyframes ag-spin { to { transform: rotate(360deg); } }
-                .ag-empty-icon { font-size: 3.5rem; }
-                .ag-empty h3 { font-size: 1.1rem; font-weight: 700; color: var(--text); margin: 0; }
-                .ag-empty p { font-size: 0.9rem; margin: 0; }
+                @keyframes spin { to { transform: rotate(360deg); } }
 
-                /* ── RESPONSIVE ── */
-                @media (max-width: 768px) {
-                    .agenda-section { padding: 60px 0; }
-                    .ag-filter-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
-                    .ag-month-scroller-wrap { width: 100%; }
-                    .ag-dot { width: 40px; font-size: 1.1rem; }
-                    .ag-date-block { padding: 12px 10px; min-width: 52px; }
-                    .ag-day { font-size: 1.4rem; }
-                    .ag-content { padding: 12px 14px; }
-                    .ag-card:hover { transform: none; }
+                /* Responsive */
+                @media (max-width: 900px) {
+                    .ag-calendar-card {
+                        grid-template-columns: 1fr;
+                    }
+                    .ag-cal-left {
+                        border-right: none;
+                        border-bottom: 1px solid var(--border);
+                    }
+                }
+                @media (max-width: 480px) {
+                    .ag-cal-left, .ag-cal-right { padding: 20px; }
+                    .ag-day-num { font-size: 0.72rem; }
                 }
             `}</style>
         </section>
