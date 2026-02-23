@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import Informasi from "@/components/Informasi";
+import Agenda from "@/components/Agenda";
 import Testimonials from "@/components/Testimonials";
 import Laporan from "@/components/Laporan";
 import Aplikasi from "@/components/Aplikasi";
@@ -14,6 +15,7 @@ export default function Page() {
       <main>
         <Hero />
         <Informasi />
+        <Agenda />
         <Laporan />
         <Testimonials />
         <Aplikasi />
