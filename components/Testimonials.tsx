@@ -110,6 +110,7 @@ export default function Testimonials() {
                                     value={newName}
                                     onChange={(e) => setNewName(e.target.value)}
                                     className="form-input"
+                                    suppressHydrationWarning
                                 />
                                 <textarea
                                     placeholder="Bagikan pengalaman Anda menggunakan ACCA..."
@@ -117,6 +118,7 @@ export default function Testimonials() {
                                     onChange={(e) => setNewQuote(e.target.value)}
                                     required
                                     className="form-textarea"
+                                    suppressHydrationWarning
                                 />
                                 <button type="submit" className="btn primary full-width">
                                     Kirim Testimoni

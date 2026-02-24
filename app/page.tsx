@@ -14,8 +14,8 @@ export default function Page() {
       <Header />
       <main>
         <Hero />
-        <Informasi />
         <Agenda />
+        <Informasi />
         <Laporan />
         <Testimonials />
         <Aplikasi />

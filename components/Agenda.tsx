@@ -14,6 +14,7 @@ interface AgendaItem {
     lokasi: string | null;
     kategori: string;
     warna: string;
+    skip_hari_libur: boolean | null;
 }
 
 interface HolidayItem {
@@ -61,7 +62,7 @@ export default function Agenda() {
     const [viewYear, setViewYear] = useState(now.getFullYear());
     const [viewMonth, setViewMonth] = useState(now.getMonth()); // 0-indexed
 
-    const todayStr = now.toISOString().slice(0, 10);
+    const todayStr = toDateStr(now.getFullYear(), now.getMonth() + 1, now.getDate());
 
     // Fetch academic agenda
     useEffect(() => {
@@ -101,28 +102,57 @@ export default function Agenda() {
         fetchHolidays();
     }, [viewYear]);
 
-    // Build event map: dateStr -> agenda items
-    const eventMap = useMemo(() => {
-        const map: Record<string, AgendaItem[]> = {};
-        agendas.forEach(a => {
-            // Span multi-day events
-            const start = new Date(a.tanggal_mulai + "T00:00:00");
-            const end = a.tanggal_selesai ? new Date(a.tanggal_selesai + "T00:00:00") : start;
-            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                const key = d.toISOString().slice(0, 10);
-                if (!map[key]) map[key] = [];
-                map[key].push(a);
-            }
-        });
-        return map;
-    }, [agendas]);
-
     // Build holiday set for current view year
     const holidayMap = useMemo(() => {
         const map: Record<string, string> = {};
         holidays.forEach(h => { map[h.tanggal] = h.nama; });
         return map;
     }, [holidays]);
+
+    // Build event map: dateStr -> agenda items
+    const eventMap = useMemo(() => {
+        const map: Record<string, AgendaItem[]> = {};
+        agendas.forEach(a => {
+            if (!a.tanggal_mulai) return;
+
+            // Normalize dates to YYYY-MM-DD
+            const startDate = a.tanggal_mulai.split("T")[0];
+            const endDate = a.tanggal_selesai ? a.tanggal_selesai.split("T")[0] : startDate;
+
+            const start = new Date(startDate + "T00:00:00");
+            const end = new Date(endDate + "T00:00:00");
+
+            if (isNaN(start.getTime()) || isNaN(end.getTime()) || start.getTime() > end.getTime()) {
+                // Fallback to single day
+                const key = startDate;
+                const dow = start.getDay();
+                const isWeekend = dow === 0 || dow === 6;
+                const isHoliday = !!holidayMap[key];
+
+                if (a.skip_hari_libur && (isWeekend || isHoliday)) return;
+
+                if (!map[key]) map[key] = [];
+                map[key].push(a);
+                return;
+            }
+
+            for (let d = new Date(start); d.getTime() <= end.getTime(); d.setDate(d.getDate() + 1)) {
+                const key = toDateStr(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                const dow = d.getDay();
+                const isWeekend = dow === 0 || dow === 6;
+                const isHoliday = !!holidayMap[key];
+
+                // Skip Sat, Sun, Holiday if skip_hari_libur is enabled
+                if (a.skip_hari_libur && (isWeekend || isHoliday)) continue;
+
+                if (!map[key]) map[key] = [];
+                map[key].push(a);
+                // Upper bound safety (1 year max iteration to prevent infinite loops)
+                if (d.getTime() > start.getTime() + 31536000000) break;
+            }
+        });
+        return map;
+    }, [agendas, holidayMap]);
 
     // Calendar grid calculation
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -151,7 +181,7 @@ export default function Agenda() {
 
     // Upcoming events (next 5 from today, for the sidebar fallback)
     const upcomingEvents = agendas
-        .filter(a => a.tanggal_mulai >= todayStr)
+        .filter(a => (a.tanggal_selesai || a.tanggal_mulai) >= todayStr)
         .sort((a, b) => a.tanggal_mulai.localeCompare(b.tanggal_mulai))
         .slice(0, 5);
 
@@ -167,9 +197,6 @@ export default function Agenda() {
             <div className="container" style={{ position: "relative", zIndex: 1 }}>
                 <Reveal>
                     <div className="sectionHead">
-                        <div className="section-badge">
-                            <span>📅</span> Agenda Akademik
-                        </div>
                         <h2 className="h2">
                             Kalender <span className="ag-accent">Kegiatan</span>
                         </h2>
@@ -367,20 +394,21 @@ export default function Agenda() {
                 /* Main calendar card */
                 .ag-calendar-card {
                     display: grid;
-                    grid-template-columns: 1fr 380px;
+                    grid-template-columns: 1fr 320px;
                     gap: 0;
                     background: white;
                     border: 1px solid var(--border);
-                    border-radius: 24px;
+                    border-radius: 20px;
                     box-shadow: var(--shadow-md);
                     overflow: hidden;
-                    margin-top: 40px;
-                    min-height: 500px;
+                    margin: 30px auto 0;
+                    min-height: 460px;
+                    max-width: 950px;
                 }
 
                 /* Left: Calendar */
                 .ag-cal-left {
-                    padding: 32px;
+                    padding: 24px;
                     border-right: 1px solid var(--border);
                 }
                 .ag-cal-header {
@@ -530,10 +558,10 @@ export default function Agenda() {
 
                 /* Right: Detail Panel */
                 .ag-cal-right {
-                    padding: 32px;
+                    padding: 24px;
                     display: flex;
                     flex-direction: column;
-                    gap: 20px;
+                    gap: 16px;
                     background: #fafbff;
                 }
                 .ag-detail-header {
@@ -549,7 +577,7 @@ export default function Agenda() {
                     gap: 14px;
                 }
                 .ag-detail-day {
-                    font-size: 3rem;
+                    font-size: 2.2rem;
                     font-weight: 900;
                     color: #0038A8;
                     line-height: 1;

@@ -10,15 +10,15 @@ export default function Aplikasi() {
             desc: 'Academic Center & Access MAN Insan Cendekia Gowa.',
             logo: '/logo-acca.png',
             url: 'https://acca.icgowa.sch.id',
-            btnText: 'Buka ACCA '
+            btnText: 'Buka'
         },
         {
             id: 'rdm',
             name: 'RDM',
             desc: 'Raport Digital Madrasah.',
             logo: '/logo-rdm.png',
-            url: 'https://rdm.icgowa.sch.id', // Assuming logical URL, user can fix if different
-            btnText: 'Buka RDM '
+            url: 'https://rdm.icgowa.sch.id',
+            btnText: 'Buka'
         }
     ];
 
@@ -40,7 +40,6 @@ export default function Aplikasi() {
                                     <img src={app.logo} alt={app.name} className="appLogo" />
                                 </div>
                                 <div className="appInfo">
-                                    <h3 className="appTitle">{app.name}</h3>
                                     <p className="appDesc">{app.desc}</p>
                                     <div className="appActions">
                                         <a className="btn primary small" href={app.url} target="_blank" rel="noopener noreferrer">
@@ -57,74 +56,88 @@ export default function Aplikasi() {
             <style jsx>{`
                 .appsGrid {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+                    grid-template-columns: repeat(auto-fit, minmax(320px, 400px));
                     gap: 32px;
                     margin-top: 40px;
+                    justify-content: center;
                 }
                 .appCard {
                     background: white;
-                    padding: 32px;
-                    border-radius: 24px;
+                    padding: 40px 32px;
+                    border-radius: 28px;
                     border: 1px solid var(--border);
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     text-align: center;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
                     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
                     height: 100%;
+                    position: relative;
                 }
                 .appCard:hover {
                     transform: translateY(-8px);
-                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-                    border-color: var(--primary);
+                    box-shadow: 0 25px 50px -12px rgba(0, 56, 168, 0.15);
+                    border-color: rgba(0, 56, 168, 0.3);
                 }
                 .appLogoWrapper {
-                    width: 70px;
-                    height: 70px;
-                    background: var(--bg-alt);
-                    border-radius: 20px;
+                    width: 90px;
+                    height: 90px;
+                    background: #f8fafc;
+                    border-radius: 24px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     margin-bottom: 24px;
-                    padding: 12px;
-                    transition: all 0.3s;
+                    padding: 16px;
+                    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                    border: 1px solid rgba(0,0,0,0.03);
                 }
                 .appCard:hover .appLogoWrapper {
-                    background: var(--primary-light);
-                    transform: rotate(5deg);
+                    background: #f0f4ff;
+                    transform: scale(1.05);
+                    border-color: rgba(0, 56, 168, 0.1);
                 }
                 .appLogo {
                     max-width: 100%;
                     max-height: 100%;
                     object-fit: contain;
                 }
-                .appTitle {
-                    font-size: 1.5rem;
-                    font-weight: 800;
-                    margin-bottom: 12px;
-                    color: var(--text);
+                .appInfo {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    width: 100%;
+                    flex: 1;
                 }
                 .appDesc {
                     color: var(--text-dim);
-                    font-size: 0.95rem;
+                    font-size: 1rem;
                     line-height: 1.6;
-                    margin-bottom: 28px;
+                    margin-bottom: 32px;
                     flex-grow: 1;
+                    max-width: 260px;
                 }
                 .appActions {
                     display: flex;
-                    gap: 12px;
+                    justify-content: center;
                     width: 100%;
                 }
                 .appActions :global(.btn) {
-                    width: 100%;
+                    width: auto;
+                    min-width: 160px;
+                    padding: 12px 24px;
+                    border-radius: 12px;
+                    font-weight: 700;
+                    letter-spacing: 0.02em;
                 }
 
                 @media (max-width: 768px) {
                     .appsGrid {
                         grid-template-columns: 1fr;
+                        max-width: 400px;
+                        margin-left: auto;
+                        margin-right: auto;
                     }
                 }
             `}</style>
