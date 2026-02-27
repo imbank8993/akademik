@@ -26,17 +26,18 @@ export default function UploadPage() {
 
     useEffect(() => {
         setMounted(true)
-        fetchCategories()
     }, [])
 
     useEffect(() => {
+        if (mounted) fetchCategories()
         setSelectedUploader(null)
-    }, [role])
+    }, [role, mounted])
 
 
     const fetchCategories = async () => {
+        setFetching(true)
         try {
-            const res = await fetch(`${API_URL}/api/upload-categories?type=student`)
+            const res = await fetch(`${API_URL}/api/upload-categories?role=${role}`)
             const data = await res.json()
 
             if (Array.isArray(data)) {

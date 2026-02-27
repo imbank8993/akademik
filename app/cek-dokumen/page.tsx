@@ -14,11 +14,13 @@ interface DokumenSiswa {
 }
 
 export default function CekDokumenPage() {
+    const [role, setRole] = useState<'siswa' | 'guru'>('siswa')
     const [nisn, setNisn] = useState('')
-    const [namaIbu, setNamaIbu] = useState('')
+    const [nip, setNip] = useState('')
+    const [identifier, setIdentifier] = useState('') // Nama Ibu for Siswa, Password for Guru
     const [loading, setLoading] = useState(false)
     const [documents, setDocuments] = useState<DokumenSiswa[] | null>(null)
-    const [studentName, setStudentName] = useState('')
+    const [personName, setPersonName] = useState('')
     const [searched, setSearched] = useState(false)
     const [animateBg, setAnimateBg] = useState(false)
 
@@ -28,12 +30,23 @@ export default function CekDokumenPage() {
 
     const handleCheck = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!nisn || !namaIbu) {
+        if (role === 'siswa' && (!nisn || !identifier)) {
             Swal.fire({
                 toast: true,
                 position: 'top-end',
                 icon: 'warning',
                 title: 'Mohon lengkapi NISN dan Nama Ibu',
+                showConfirmButton: false,
+                timer: 3000
+            })
+            return
+        }
+        if (role === 'guru' && (!nip || !identifier)) {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'warning',
+                title: 'Mohon lengkapi NIP dan Password Login ACCA',
                 showConfirmButton: false,
                 timer: 3000
             })
@@ -52,7 +65,12 @@ export default function CekDokumenPage() {
                 fetch('/api/cek-dokumen', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nisn, nama_ibu: namaIbu })
+                    body: JSON.stringify({
+                        role,
+                        nisn: role === 'siswa' ? nisn : undefined,
+                        nip: role === 'guru' ? nip : undefined,
+                        identifier
+                    })
                 }),
                 minLoad
             ]);
@@ -65,7 +83,7 @@ export default function CekDokumenPage() {
 
             if (json.data) {
                 setDocuments(json.data)
-                setStudentName(json.siswa_nama)
+                setPersonName(json.nama)
                 if (json.data.length === 0) {
                     Swal.fire({
                         title: 'Identitas Terverifikasi!',
@@ -78,10 +96,10 @@ export default function CekDokumenPage() {
 
         } catch (err: any) {
             setDocuments(null)
-            setStudentName('')
+            setPersonName('')
             Swal.fire({
                 title: 'Verifikasi Gagal',
-                text: err.message || 'Pastikan NISN dan Ejaan Nama Ibu sesuai.',
+                text: err.message || (role === 'siswa' ? 'Pastikan NISN dan Ejaan Nama Ibu sesuai.' : 'Pastikan NIP dan Password ACCA sesuai.'),
                 icon: 'error',
                 confirmButtonColor: '#d33',
                 background: '#fff',
@@ -115,51 +133,77 @@ export default function CekDokumenPage() {
                                     <i className="bi bi-file-earmark-lock-fill text-2xl text-white"></i>
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold tracking-tight">Dokumen Siswa</h2>
+                                    <h2 className="text-xl font-bold tracking-tight">Dokumen Digital</h2>
                                     <p className="text-xs text-blue-200 uppercase tracking-widest font-semibold">MAN IC GOWA</p>
                                 </div>
+                            </div>
+
+                            {/* Role Switcher */}
+                            <div className="flex bg-black/30 p-1 rounded-2xl mb-8 border border-white/5 shadow-inner">
+                                <button
+                                    onClick={() => { setRole('siswa'); setSearched(false); setDocuments(null); setIdentifier(''); }}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${role === 'siswa' ? 'bg-white text-blue-900 shadow-xl scale-[1.02]' : 'bg-transparent text-white/50 hover:text-white'}`}
+                                >
+                                    <i className="bi bi-people-fill"></i> Siswa
+                                </button>
+                                <button
+                                    onClick={() => { setRole('guru'); setSearched(false); setDocuments(null); setIdentifier(''); }}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${role === 'guru' ? 'bg-white text-blue-900 shadow-xl scale-[1.02]' : 'bg-transparent text-white/50 hover:text-white'}`}
+                                >
+                                    <i className="bi bi-person-workspace"></i> Guru
+                                </button>
                             </div>
 
                             <div className="space-y-6">
                                 <div className="text-center md:text-left">
                                     <h1 className="text-3xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-200">
-                                        Verifikasi Identitas
+                                        Data {role === 'siswa' ? 'Siswa' : 'Guru'}
                                     </h1>
                                     <p className="text-blue-100/70 text-sm leading-relaxed">
-                                        Masukkan NISN dan Nama Ibu Kandung untuk mengakses dokumen akademik Anda secara aman.
+                                        {role === 'siswa'
+                                            ? 'Masukkan NISN dan Nama Ibu Kandung untuk mengakses dokumen akademik Anda.'
+                                            : 'Masukkan NIP dan Password Login ACCA untuk mengakses berkas digital Anda.'}
                                     </p>
                                 </div>
 
                                 <form onSubmit={handleCheck} className="flex flex-col gap-5 mt-4">
                                     <div className="group/input">
-                                        <label className="text-xs font-semibold text-blue-200 ml-1 mb-1 block uppercase tracking-wide">NISN</label>
+                                        <label className="text-xs font-semibold text-blue-200 ml-1 mb-1 block uppercase tracking-wide">
+                                            {role === 'siswa' ? 'NISN' : 'NIP'}
+                                        </label>
                                         <div className="relative">
                                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                                 <i className="bi bi-hash text-blue-300/50 group-focus-within/input:text-blue-400 transition-colors"></i>
                                             </div>
                                             <input
                                                 type="text"
-                                                value={nisn}
-                                                onChange={(e) => setNisn(e.target.value.replace(/[^0-9]/g, ''))}
+                                                value={role === 'siswa' ? nisn : nip}
+                                                onChange={(e) => {
+                                                    const val = e.target.value.replace(/[^0-9]/g, '');
+                                                    if (role === 'siswa') setNisn(val);
+                                                    else setNip(val);
+                                                }}
                                                 className="w-full pl-11 pr-4 py-4 bg-black/20 border border-white/10 focus:border-blue-500/50 hover:bg-black/30 rounded-xl outline-none transition-all font-mono text-lg tracking-wider text-white placeholder-white/20"
-                                                placeholder="00xxxxxx"
-                                                maxLength={10}
+                                                placeholder={role === 'siswa' ? "00xxxxxx" : "19xxxxxx"}
+                                                maxLength={role === 'siswa' ? 10 : 18}
                                             />
                                         </div>
                                     </div>
 
                                     <div className="group/input">
-                                        <label className="text-xs font-semibold text-blue-200 ml-1 mb-1 block uppercase tracking-wide">Nama Ibu Kandung</label>
+                                        <label className="text-xs font-semibold text-blue-200 ml-1 mb-1 block uppercase tracking-wide">
+                                            {role === 'siswa' ? 'Nama Ibu Kandung' : 'Password Login ACCA'}
+                                        </label>
                                         <div className="relative">
                                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                <i className="bi bi-person-heart text-blue-300/50 group-focus-within/input:text-pink-400 transition-colors"></i>
+                                                <i className={`bi ${role === 'siswa' ? 'bi-person-heart' : 'bi-shield-lock'} text-blue-300/50 group-focus-within/input:text-pink-400 transition-colors`}></i>
                                             </div>
                                             <input
-                                                type="text"
-                                                value={namaIbu}
-                                                onChange={(e) => setNamaIbu(e.target.value)}
+                                                type={role === 'siswa' ? "text" : "password"}
+                                                value={identifier}
+                                                onChange={(e) => setIdentifier(e.target.value)}
                                                 className="w-full pl-11 pr-4 py-4 bg-black/20 border border-white/10 focus:border-blue-500/50 hover:bg-black/30 rounded-xl outline-none transition-all text-lg text-white placeholder-white/20"
-                                                placeholder="Nama Lengkap"
+                                                placeholder={role === 'siswa' ? "Nama Lengkap" : "••••••••"}
                                             />
                                         </div>
                                     </div>
@@ -230,7 +274,7 @@ export default function CekDokumenPage() {
                                 <div className="animate-slide-down">
                                     <p className="text-blue-300 text-xs font-bold uppercase tracking-widest mb-1">Hasil Pencarian</p>
                                     <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight">
-                                        Halo, {studentName}
+                                        Halo, {personName}
                                     </h2>
                                 </div>
                                 <div className="text-right hidden md:block">
@@ -271,12 +315,12 @@ export default function CekDokumenPage() {
                                                         {doc.source === 'official' ? (
                                                             <span className="flex items-center gap-1 border-l border-white/10 pl-3 text-cyan-400">
                                                                 <i className="bi bi-patch-check-fill"></i>
-                                                                Akademik
+                                                                Resmi
                                                             </span>
                                                         ) : (
                                                             <span className="flex items-center gap-1 border-l border-white/10 pl-3 text-emerald-400">
                                                                 <i className="bi bi-person-badge-fill"></i>
-                                                                Siswa
+                                                                Kiriman
                                                             </span>
                                                         )}
                                                     </div>
@@ -322,7 +366,7 @@ export default function CekDokumenPage() {
                             <div>
                                 <h3 className="text-2xl font-bold text-white mb-2">Dokumen Tidak Ditemukan</h3>
                                 <p className="text-white/60 max-w-md mx-auto">
-                                    Sistem tidak menemukan dokumen untuk siswa <b>{studentName}</b>. <br />
+                                    Sistem tidak menemukan dokumen untuk <b>{personName}</b>. <br />
                                     Mohon hubungi bagian Tata Usaha jika Anda yakin dokumen seharusnya ada.
                                 </p>
                             </div>
