@@ -42,7 +42,7 @@ export async function POST(request: Request) {
             // 1. Get Username from users table in ACCA by NIP
             const { data: userData, error: userError } = await supabaseAdmin
                 .from('users')
-                .select('username, nama_lengkap')
+                .select('username, nama')
                 .eq('nip', nip)
                 .single()
 
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
                 return NextResponse.json({ ok: false, error: 'Password ACCA tidak sesuai.' }, { status: 401 })
             }
 
-            personData = { id: nip, nama: userData.nama_lengkap, role: 'guru' };
+            personData = { id: nip, nama: userData.nama, role: 'guru' };
         }
 
         // 3. Ambil Dokumen Resmi (target_role filter)
