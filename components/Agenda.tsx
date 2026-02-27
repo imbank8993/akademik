@@ -71,7 +71,7 @@ export default function Agenda() {
             try {
                 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://acca.icgowa.sch.id";
                 const res = await fetch(`${baseUrl}/api/agenda-akademik/public`);
-                if (!res.ok) throw new Error("Gagal ambil agenda");
+                if (!res.ok) throw new Error(`Status ${res.status}`);
                 const json = await res.json();
                 setAgendas(json.data || []);
             } catch (e) {

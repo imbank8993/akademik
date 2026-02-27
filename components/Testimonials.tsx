@@ -24,17 +24,25 @@ export default function Testimonials() {
     const fetchTestimonials = async () => {
         try {
             setError("");
-            const res = await fetch(API_URL);
-            if (!res.ok) throw new Error("Gagal mengambil data dari server");
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://acca.icgowa.sch.id";
+            const API_ENDPOINT = `${baseUrl}/api/testimonials`;
+
+            const res = await fetch(API_ENDPOINT);
+            if (!res.ok) {
+                // If fetching from default prod fails, try to just fail silently with error state
+                console.warn(`Testimonials API failed with status ${res.status}`);
+                setError("Testimoni sementara tidak tersedia.");
+                return;
+            }
 
             const json = await res.json();
             if (json.ok) {
-                setTestimonials(json.data);
+                setTestimonials(json.data || []);
             } else {
-                throw new Error(json.error || "Terjadi kesalahan pada server");
+                setError(json.error || "Gagal memuat testimoni.");
             }
         } catch (e) {
-            console.error("Gagal mengambil testimoni:", e);
+            console.warn("Gagal mengambil testimoni (Backend mungkin offline):", e);
             setError("Gagal memuat testimoni. Pastikan backend aktif.");
         } finally {
             setLoading(false);

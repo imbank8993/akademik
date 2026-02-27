@@ -23,28 +23,23 @@ export default function Informasi() {
         const fetchDocs = async () => {
             try {
                 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://acca.icgowa.sch.id";
-                // Hanya ambil dokumen yang show_on_landing = true
-                const API_URL = `${baseUrl}/api/informasi-akademik?show_on_landing=true`;
+                const API_ENDPOINT = `${baseUrl}/api/informasi-akademik?show_on_landing=true`;
 
-                console.log("Mencoba mengambil data dari:", API_URL);
-
-                const response = await fetch(API_URL);
+                const response = await fetch(API_ENDPOINT);
                 if (!response.ok) {
-                    throw new Error(`Server returned ${response.status}: ${response.statusText} (${API_URL})`);
+                    console.warn(`Informasi API failed with status ${response.status}`);
+                    return;
                 }
 
                 const contentType = response.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    throw new Error("API tidak mengembalikan JSON. Pastikan URL benar dan sudah di-deploy.");
-                }
-
-                const json = await response.json();
-                if (json.ok) {
-                    setDocs(json.data);
+                if (contentType && contentType.includes("application/json")) {
+                    const json = await response.json();
+                    if (json.ok) {
+                        setDocs(json.data || []);
+                    }
                 }
             } catch (error) {
-                console.warn("Gagal mengambil data informasi (Backend mungkin offline/CORS belum diatur):", error);
-                // Jangan throw error ke UI, cukup biarkan docs kosong agar menampilkan empty state
+                console.warn("Gagal mengambil data informasi (Backend mungkin offline):", error);
             } finally {
                 setLoading(false);
             }
